@@ -1,0 +1,12 @@
+# For an NVIDIA GPU, install the CUDA build of PyTorch FIRST, then this file:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+#   pip install -r requirements.txt
+# Without that first step, pip installs the CPU-only PyTorch build.
+ultralytics
+opencv-python
+numpy
+fastapi
+uvicorn
+python-multipart
+pytest
+httpx

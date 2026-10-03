@@ -1,0 +1,270 @@
+{
+ "source_video": "Untitled_design.mp4 (1920x1080, 30 fps), frame 0",
+ "frame_size": [
+  1920,
+  1080
+ ],
+ "assumptions": {
+  "dash_cycle_m": 12.192,
+  "dash_length_m": 3.048,
+  "lane_spacing_m": 3.6576,
+  "note": "NYS broken lane line = 10 ft line + 30 ft gap (40 ft cycle, 12.192 m); lane width 12 ft (3.6576 m). Dashes assumed aligned across lane lines. Scale is NOT independently verified."
+ },
+ "world_frame": "X across the road (0 = line a, nearest the camera, increasing toward the barrier); Y along the road (0 = first dash row, increasing to the right in the image)",
+ "points": [
+  {
+   "name": "linea_row1_end",
+   "pixel": [
+    1133.7,
+    1034.4
+   ],
+   "meters": [
+    0.0,
+    3.048
+   ]
+  },
+  {
+   "name": "linea_row2_start",
+   "pixel": [
+    1445.5,
+    939.6
+   ],
+   "meters": [
+    0.0,
+    12.192
+   ]
+  },
+  {
+   "name": "linea_row2_end",
+   "pixel": [
+    1518.7,
+    917.7
+   ],
+   "meters": [
+    0.0,
+    15.24
+   ]
+  },
+  {
+   "name": "linea_row3_start",
+   "pixel": [
+    1679.4,
+    868.2
+   ],
+   "meters": [
+    0.0,
+    24.384
+   ]
+  },
+  {
+   "name": "linea_row3_end",
+   "pixel": [
+    1718.7,
+    855.7
+   ],
+   "meters": [
+    0.0,
+    27.432
+   ]
+  },
+  {
+   "name": "lineb_row1_start",
+   "pixel": [
+    763.8,
+    1031.4
+   ],
+   "meters": [
+    3.6576,
+    0.0
+   ]
+  },
+  {
+   "name": "lineb_row1_end",
+   "pixel": [
+    925.8,
+    993.3
+   ],
+   "meters": [
+    3.6576,
+    3.048
+   ]
+  },
+  {
+   "name": "lineb_row2_start",
+   "pixel": [
+    1250.0,
+    916.5
+   ],
+   "meters": [
+    3.6576,
+    12.192
+   ]
+  },
+  {
+   "name": "lineb_row2_end",
+   "pixel": [
+    1330.2,
+    898.6
+   ],
+   "meters": [
+    3.6576,
+    15.24
+   ]
+  },
+  {
+   "name": "lineb_row3_start",
+   "pixel": [
+    1518.0,
+    853.5
+   ],
+   "meters": [
+    3.6576,
+    24.384
+   ]
+  },
+  {
+   "name": "lineb_row3_end",
+   "pixel": [
+    1564.9,
+    842.3
+   ],
+   "meters": [
+    3.6576,
+    27.432
+   ]
+  },
+  {
+   "name": "linec_row1_start",
+   "pixel": [
+    583.0,
+    995.0
+   ],
+   "meters": [
+    7.3152,
+    0.0
+   ]
+  },
+  {
+   "name": "linec_row1_end",
+   "pixel": [
+    745.8,
+    963.6
+   ],
+   "meters": [
+    7.3152,
+    3.048
+   ]
+  },
+  {
+   "name": "linec_row2_start",
+   "pixel": [
+    1092.6,
+    896.1
+   ],
+   "meters": [
+    7.3152,
+    12.192
+   ]
+  },
+  {
+   "name": "linec_row2_end",
+   "pixel": [
+    1176.9,
+    879.2
+   ],
+   "meters": [
+    7.3152,
+    15.24
+   ]
+  },
+  {
+   "name": "linec_row3_start",
+   "pixel": [
+    1379.1,
+    840.2
+   ],
+   "meters": [
+    7.3152,
+    24.384
+   ]
+  },
+  {
+   "name": "linec_row3_end",
+   "pixel": [
+    1430.8,
+    830.4
+   ],
+   "meters": [
+    7.3152,
+    27.432
+   ]
+  },
+  {
+   "name": "lined_row1_start",
+   "pixel": [
+    445.7,
+    962.0
+   ],
+   "meters": [
+    10.9728,
+    0.0
+   ]
+  },
+  {
+   "name": "lined_row1_end",
+   "pixel": [
+    608.1,
+    935.8
+   ],
+   "meters": [
+    10.9728,
+    3.048
+   ]
+  },
+  {
+   "name": "lined_row2_start",
+   "pixel": [
+    956.1,
+    878.8
+   ],
+   "meters": [
+    10.9728,
+    12.192
+   ]
+  },
+  {
+   "name": "lined_row2_end",
+   "pixel": [
+    1044.3,
+    863.8
+   ],
+   "meters": [
+    10.9728,
+    15.24
+   ]
+  }
+ ],
+ "line_a": [
+  1735.0,
+  975.1
+ ],
+ "line_b": [
+  809.8,
+  861.3
+ ],
+ "line_definition": "Real cross-road line at Y=12.192 m from X=-4.6 m to X=15.4 m (near carriageway only)",
+ "positive_direction": "positive count = vehicles crossing the line moving left to right in the image (increasing Y)",
+ "zone_m": [
+  -4.7,
+  14.8,
+  0.0,
+  27.4
+ ],
+ "expected_fit": {
+  "pixel_rms": 2.78,
+  "pixel_max": 4.96,
+  "meter_rms": 0.167,
+  "meter_max": 0.381,
+  "heldout_row3_mean_error_m": 0.35
+ }
+}
