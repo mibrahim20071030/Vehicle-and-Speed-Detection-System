@@ -15,7 +15,7 @@ CLAUDE.md is the spec. This file records what has been built, what was decided, 
 - Model family switched to **YOLO26** (`yolo26n/s/m.pt`) on 2026-10-03 at the user's choice; CLAUDE.md updated. `yolo26n.pt` downloaded to the repo root. `iou=` still affects YOLO26 results (7 / 10 / 19 boxes at iou 0.1 / 0.5 / 0.9 on frame 0), so NMS still runs.
 
 ### Layer 1: read video and draw (DONE, tests pass, manual check done)
-- `video.py`: `open_video`, `draw_overlay` as specified. Must not change.
+- `video.py`: `open_video`, `draw_overlay` as specified. Must not change (except: 2026-10-04, at the user's request, track labels made larger (scale 0.9, thickness 2) and yellow on a filled black box, constants `LABEL_COLOR`, `LABEL_BG_COLOR`, `LABEL_SCALE`).
 - `tests/helpers.py`: `make_video`. `mp4v` works on this machine (recorded in CLAUDE.md).
 - `tests/test_video.py`: 3 tests.
 - `pytest.ini`: `pythonpath = .` so tests can import modules from the repo root, and `testpaths = tests`.
@@ -82,15 +82,45 @@ Built:
 - How to run the project (PowerShell, `.venv` activation, pytest, the scripts and tools).
 - The difference between a file, a module (`.py` with functions, imported, e.g. `video.py`) and a script (`.py` run with `python ...`, e.g. `scripts/annotate_line.py`), and what each file/folder in the repo is for. When adding a new file, say which group it belongs to and why it exists.
 
+## Session 3: 2026-10-04 (Layer 2)
+
+### Layer 2: detection (DONE in code, tests pass; waiting for the user's look at the video)
+- `detector.py`: `model = YOLO("yolo26n.pt")` at import, `detect(frame)` as specified. Boxes, class IDs and confidences are converted with `.tolist()` to plain Python numbers.
+- `tests/test_detector.py`: `test_detect_returns_vehicles` (on `car.jpg`), `test_detect_blank_frame`.
+- `scripts/annotate_detections.py <in.mp4> <out.mp4> [max_frames=300]`: by-hand check script. Draws detection boxes and the counting line with `draw_overlay`, prints detections per frame. Listed in CLAUDE.md's repo layout.
+- **Test status:** 12 passed (13 s; importing `detector` loads the model).
+- Visual check run on the first 300 frames (10 s) of `footage/Untitled design.mp4` -> `footage/annotated_detections.mp4` (git-ignored). 8.2 detections per frame on average (min 2, max 13). Frames at 0 s, 5 s, 9 s looked at:
+  - Near-carriageway vehicles around the counting line are boxed, including dark cars and a yellow taxi. Boxes fit the vehicles.
+  - Small, distant vehicles at the right of the frame (far end of the road, beyond the speed zone) and many far-carriageway vehicles are often missed. Neither matters for counting or speed.
+  - Overlapping vehicles in the near lanes sometimes get boxes that overlap a lot; watch for ID switches in Layer 3.
+- Box drawing in `draw_overlay` now seen on real frames. Labels (track IDs, speeds) and counts are still unseen (Layer 3 / Layer 6).
+- Memory: the user does all git commits and pushes; never commit or push for them.
+
+## Session 4: 2026-10-04 (Layer 3)
+
+### Layer 3: tracking (DONE in code, tests pass; waiting for the user's look at the video)
+- `tracker.py`: `make_tracker`, `track_frame` as specified. IDs, boxes, classes, confidences converted with `.tolist()`.
+- `tests/data/one_car.mp4`: a NEW file cut from `footage/Untitled design.mp4` (the source is only read). Frames 2230 to 2264 (35 frames, 1.17 s), crop x 220 to 1020, y 630 to 1080. One minivan on the far carriageway. Not 5 s: no longer single-vehicle window exists (searched all 3622 frames; traffic is dense, a car crosses a fixed crop in about 1.5 s). `detect` at conf 0.1 finds exactly 1 box in every frame.
+- `tests/test_tracker.py`: 2 tests. The minivan keeps ID 1 in 35 of 35 frames, so 80% stays.
+- `scripts/annotate_tracks.py <in.mp4> <out.mp4> [max_frames=300]`: by-hand check script, draws boxes with ID labels. Listed in CLAUDE.md.
+- **Test status:** 14 passed.
+- ByteTrack defaults and the reset call are verified and written into CLAUDE.md Layer 3. Reset: `tracker_model.predictor.trackers[0].reset()`.
+- Visual check on the first 300 frames -> `footage/annotated_tracks.mp4`: 67 IDs, 20 ever inside ZONE. Near-lane cars mostly keep one ID across the whole frame. ID labels now seen on real frames.
+  - **Known failure:** lane 5 (barrier side) cars hidden behind a nearer car lose their box and are not recovered (ID 6 at frame 0 to 6; ID 227 lost on the counting line at frame 140). Can cause missed counts; check in the Layer 4 hand count.
+
+### Decisions made with the user
+1. Approving a plan is the go-ahead to build; no extra thumbs up needed. Only commits and pushes stay with the user.
+2. `one_car.mp4` comes from a crop of the calibration clip (not a new Pexels clip, not synthetic).
+
 ## Open items / blockers
 - **3-minute file:** choose (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
 - ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
-- Remaining CLAUDE.md open items: ByteTrack thresholds vs `conf`, resetting tracker state, hallway test object class.
+- Remaining CLAUDE.md open items: hallway test object class. (ByteTrack thresholds and tracker reset resolved in Session 4.)
 
 ## Resume here (next session: build the remaining layers)
-1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 10 pass.
-2. **Layer 2:** `detector.py` (`yolo26n.pt`), `tests/test_detector.py`. `tests/data/car.jpg` is ready. Add `scripts/annotate_detections.py` for the visual check (list it in CLAUDE.md's repo layout).
-3. **Layer 3:** `tracker.py`, `tests/test_tracker.py`. Needs `tests/data/one_car.mp4` (about 5 s, exactly one vehicle; cut from the clip). Check `bytetrack.yaml` thresholds vs `conf=0.1`, and how to reset tracker state.
+1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 14 pass.
+2. ~~**Layer 2**~~ Done (Session 3). The user still watches `footage/annotated_detections.mp4` to confirm.
+3. ~~**Layer 3**~~ Done (Session 4). The user still watches `footage/annotated_tracks.mp4` to confirm.
 4. **Layer 4:** the rest of `counting.py`, `tests/test_counting.py`.
 5. **Layer 5:** `check_calibration` in `calibration.py`, `speed.py`, the rest of `tests/test_speed.py`.
 6. **Layer 6:** `pipeline.py`, `main.py`, `tests/test_api.py`, demo video/GIF.

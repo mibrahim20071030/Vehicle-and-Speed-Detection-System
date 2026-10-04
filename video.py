@@ -3,6 +3,9 @@ import cv2
 LINE_COLOR = (0, 255, 0)  # green (BGR)
 BOX_COLOR = (0, 0, 255)  # red (BGR)
 TEXT_COLOR = (255, 255, 255)  # white (BGR)
+LABEL_COLOR = (0, 255, 255)  # yellow (BGR), track ID and speed text
+LABEL_BG_COLOR = (0, 0, 0)  # black (BGR), filled box behind the label
+LABEL_SCALE = 0.9
 
 
 def open_video(path):
@@ -30,8 +33,11 @@ def draw_overlay(frame, line_a, line_b, tracks=(), counts=None, speeds=None):
             if speeds and track_id in speeds:
                 parts.append(f"{speeds[track_id]:.1f} km/h")
         if parts:
-            cv2.putText(out, " ".join(parts), (x1, max(y1 - 5, 10)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, BOX_COLOR, 1)
+            label = " ".join(parts)
+            (tw, th), baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, LABEL_SCALE, 2)
+            ty = max(y1 - 6, th + 6)  # text baseline; kept inside the frame at the top edge
+            cv2.rectangle(out, (x1, ty - th - 4), (x1 + tw + 4, ty + baseline), LABEL_BG_COLOR, -1)
+            cv2.putText(out, label, (x1 + 2, ty), cv2.FONT_HERSHEY_SIMPLEX, LABEL_SCALE, LABEL_COLOR, 2)
 
     if counts is not None:
         text = f"+: {counts['positive']}  -: {counts['negative']}"

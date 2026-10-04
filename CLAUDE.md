@@ -43,7 +43,8 @@ calibration_overlay.png  reference picture of frame 0 with grid, points, line, z
 config.py          camera setup: loads SRC, DST, LINE_A, LINE_B, ZONE, FRAME_SIZE from calibration_points.json
 footage/           real clips (from Pexels)
 tools/             one-off scripts, not part of the pipeline: click_points.py, draw_calibration.py, calibration_report.py
-scripts/           annotate_line.py (Layer 1 manual check)
+docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it)
+scripts/           annotate_line.py (Layer 1 manual check), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check)
 pytest.ini         puts the repo root on the import path for tests
 video.py           Layer 1: open_video, draw_overlay
 detector.py        Layer 2: detect
@@ -57,7 +58,7 @@ metrics.py         Layer 7: percent_error, speed_errors
 benchmark.py       Layer 7: run_benchmark
 tests/
   helpers.py       make_video (shared test helper)
-  data/            car.jpg, one_car.mp4 (license-checked, no identifiable people)
+  data/            car.jpg, one_car.mp4 (both cut from the calibration clip, Pexels; no identifiable people)
   test_video.py, test_detector.py, test_tracker.py, test_counting.py,
   test_speed.py, test_calibration_config.py, test_api.py, test_metrics.py
 README.md
@@ -168,12 +169,17 @@ These are consistency checks. They use the same lane-marking assumption, so they
 - `track_frame(tracker_model, frame)` returns a list of dicts: `{"track_id": int, "box": (x1, y1, x2, y2), "class_id": int, "confidence": float}`. Uses `tracker_model.track(frame, persist=True, tracker="bytetrack.yaml", conf=0.1, iou=0.5, classes=[2, 3, 5, 7], verbose=False)[0]`. Returns `[]` when `r.boxes.id is None`. Pairs IDs with boxes by index `i`.
 
 **Tests (`tests/test_tracker.py`):**
-- `test_one_vehicle_keeps_one_id`: on `tests/data/one_car.mp4` (about 5 s, exactly one vehicle), count how often each track ID appears with `collections.Counter`. Assert at least one frame had tracks, and the most common ID appears in at least 80% of frames that had tracks. Adjust 80% after seeing real behavior and note the reason here.
+- `test_one_vehicle_keeps_one_id`: on `tests/data/one_car.mp4`, count how often each track ID appears with `collections.Counter`. Assert at least one frame had tracks, and the most common ID appears in at least 80% of frames that had tracks. Do not assume IDs start at 1.
+  - `one_car.mp4` is NOT 5 s: it is frames 2230 to 2264 of `footage/Untitled design.mp4` (35 frames, 1.17 s at 30 fps), cropped to x 220 to 1020, y 630 to 1080 (800 x 450). One dark minivan on the far carriageway, near lanes empty. A 5 s single-vehicle clip does not exist in this footage: traffic is dense and a car crosses a fixed crop in about 1.5 s (searched all 3622 frames, 2026-10-04). Checked: `detect` at conf 0.1 finds exactly 1 box in every frame of the crop.
+  - 80% kept: the minivan has ID 1 in 35 of 35 frames (100%).
 - `test_blank_frames_have_no_tracks`: 3 black frames through one tracker each return `[]`.
 
-**Verify while building:**
-- The real default thresholds in `bytetrack.yaml`. `conf` passed to `.track()` must be at or below the tracker's low threshold, or round 2 gets nothing.
-- How to reset tracker state without reloading the model (would make the API faster).
+**Verified 2026-10-04 (ultralytics 8.4.172):**
+- `bytetrack.yaml` defaults: `track_high_thresh 0.25`, `track_low_thresh 0.1`, `new_track_thresh 0.25`, `track_buffer 30`, `match_thresh 0.8`, `fuse_score True`. `conf=0.1` equals the low threshold, so round 2 gets boxes. New IDs start only from boxes with score >= 0.25.
+- Reset without reloading: `tracker_model.predictor.trackers[0].reset()` (clears tracks, Kalman filter, and the ID counter). `predictor` exists only after the first `.track()` call. Not used yet.
+- The ID counter is shared by all trackers in one Python process, so a second tracker's IDs may not start at 1.
+
+**Visual check** (`scripts/annotate_tracks.py`, first 300 frames): 67 IDs, 20 of them ever inside ZONE. Near-lane tracks mostly keep one ID from the left edge to the right edge. Known failure: a car in lane 5 (barrier side) hidden behind a nearer car loses its box and is not picked up again (IDs 6 and 227; 227 was lost right at the counting line at frame 140). Such a car can be missed by the counter.
 
 ---
 
@@ -387,8 +393,8 @@ Run the benchmark both with and without stabilization and report the difference.
 ## Open items to verify during the build
 
 - ~~Current Ultralytics model family names.~~ Resolved 2026-10-03: YOLO26.
-- `bytetrack.yaml` default thresholds versus the `conf` passed to `.track()`.
-- A way to reset tracker state without reloading the model.
+- ~~`bytetrack.yaml` default thresholds versus the `conf` passed to `.track()`.~~ Resolved 2026-10-04 (see Layer 3).
+- ~~A way to reset tracker state without reloading the model.~~ Resolved 2026-10-04 (see Layer 3).
 - ~~Whether `mp4v` works for `cv2.VideoWriter` on this machine.~~ Verified 2026-10-03: works (Windows 11, opencv-python 5.0.0, Python 3.14.6).
 - Whether the hallway test object is detected as a vehicle class.
 - Report clip for the count benchmark: the calibration does NOT match `footage/original_3min.mp4` at its native 3840 x 2160 (checked 2026-10-03 with `tools/draw_calibration.py`: the grid lands in the sky, top-left quarter). Frame 0 shows the same scene and vehicles as the calibration clip at twice the resolution, so a x2 pixel scale or a downscale to 1920 x 1080 may fit, but neither is verified and the "do not resize" rule applies. Keep the 3 to 5 minute spec and do not split until this is resolved.
