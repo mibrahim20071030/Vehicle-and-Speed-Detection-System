@@ -1,10 +1,10 @@
-"""Layer 6 demo: run the full pipeline on part of the calibration clip, write an annotated video and demo.gif.
+﻿"""Layer 6 demo: run the full pipeline on part of the calibration clip, write an annotated video and demo.gif.
 
 Usage (from the repo root):
     python scripts/make_demo.py [start_s] [seconds]
 
-start_s defaults to 0 and seconds to 10. Writes footage/annotated_demo.mp4 (git-ignored) and demo.gif
-(10 fps, 640 px wide, made with Pillow because ffmpeg is not installed here).
+start_s defaults to 0 and seconds to 7. Writes footage/annotated_demo.mp4 (git-ignored) and demo.gif
+(7.5 fps, 640 px wide, made with Pillow because ffmpeg is not installed here).
 """
 import json
 import sys
@@ -23,7 +23,7 @@ from video import open_video  # noqa: E402
 CLIP = ROOT / "footage" / "Untitled design.mp4"
 OUT_VIDEO = ROOT / "footage" / "annotated_demo.mp4"
 OUT_GIF = ROOT / "demo.gif"
-GIF_FPS = 10
+GIF_FPS = 7.5  # 30 fps / 4: keeps every 4th frame, so the GIF plays at real speed
 GIF_WIDTH = 640
 
 
@@ -43,11 +43,11 @@ def write_gif(video_path, gif_path):
             images.append(Image.fromarray(cv2.cvtColor(small, cv2.COLOR_BGR2RGB)))
         i += 1
     cap.release()
-    images[0].save(gif_path, save_all=True, append_images=images[1:], duration=1000 // GIF_FPS, loop=0)
+    images[0].save(gif_path, save_all=True, append_images=images[1:], duration=round(1000 / GIF_FPS), loop=0)
     return len(images)
 
 
-def main(start_s=0.0, seconds=10.0):
+def main(start_s=0.0, seconds=7.0):
     _, fps = open_video(CLIP)
     start_frame = round(start_s * fps)
     end_frame = start_frame + round(seconds * fps)

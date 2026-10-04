@@ -8,8 +8,10 @@ def make_tracker(model_name="yolo26n.pt"):
 
 def track_frame(tracker_model, frame):
     """Track vehicles in one frame. Returns a list of {"track_id", "box", "class_id", "confidence"} dicts."""
+    # agnostic_nms: merge overlapping boxes even if their classes differ, so a van seen as both
+    # car and truck gets one box (and one count), not two
     r = tracker_model.track(frame, persist=True, tracker="bytetrack.yaml", conf=0.1, iou=0.5,
-                            classes=[2, 3, 5, 7], verbose=False)[0]
+                            classes=[2, 3, 5, 7], agnostic_nms=True, verbose=False)[0]
     if r.boxes.id is None:
         return []
     ids = r.boxes.id.tolist()

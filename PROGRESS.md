@@ -168,6 +168,13 @@ Built:
 - Calibration report re-run: matches the baseline.
 - `README.md` written (results, definitions, ground truth, speed sanity, calibration, limitations, footage, how to run).
 
+### Portfolio finish (same session, user agreed to the recommendation)
+- Speed error closed as not possible with this footage: no known-speed test available. Median speed vs posted limit is reported as a plausibility check only.
+- Double counts confirmed on the tuning minute 0 to 60 s (scratchpad script): n / s / m 0 / 3 / 6, mostly car + truck boxes on one van. `agnostic_nms=True` tested there: 0 / 0 / 0, nano's count unchanged (96). Added to `track_frame` in `tracker.py`.
+- Benchmark re-run once: n / s / m all 83/83 (0.0%), 59.1 / 55.8 / 45.2 fps. Median speeds 80.6 / 81.7 / 81.6 km/h. 36 tests pass.
+- `scripts/make_demo.py`: 7 s, 7.5 fps (every 4th frame, real speed), 640 px. `demo.gif` regenerated with the fix: 4.6 MB (was 9.1 MB). 480 px was tried and is unreadable.
+- README restructured for recruiters: key results at the top, results table, "why the bigger models first counted more" story with before / after, short calibration summary, limitations, "what I'd do next". Calibration details moved to the new `docs/calibration.md`.
+
 ## Open items / blockers
 - ~~**3-minute file**~~ RESOLVED 2026-10-04: the user exported the 3-minute clip at 1920 x 1080 and saved it as `footage/Untitled design.mp4`, replacing the 2-minute calibration clip. New file: 30 fps, 5557 frames, 185.2 s. Frame 0 is identical to the old frame 0 (`tests/data/car.jpg`; 0.0 px shift), so the calibration holds. Late frames (60/110/150/184 s, scratchpad picture) show the same upward drift as at 110 s, not worse; the counting line still spans the near lanes. `original_3min.mp4` (4K) is no longer needed. Road drift measured near the counting line (CLAUDE.md, Scene): no 2-minute stretch is stable. **Decided with the user (option 1):** accept the drift, no stabilization for now; tune on 0 to 60 s, report on 60 to 120 s (replaces the 3 to 5 minute spec). Stabilization only if the hand count shows missed lane 5 cars. Explained to the user: "tuning" means changing our settings, not training the model. Open: how to feed only 60 to 120 s to the program (cut clip vs start/end frames), decide in Layer 6/7. Earlier options were: (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
 - ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
@@ -181,5 +188,5 @@ Built:
 5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/annotated_speeds.mp4` and checks the posted speed limit.
 6. ~~**Layer 6**~~ Done (Session 6). The user still watches `footage/annotated_demo.mp4` / `demo.gif`, (checked: all crossings counted, including the hidden car).
 7. ~~**Layer 7**~~ Done (Session 7). All layers built.
-9. Remaining for the definition of done: speed error against real ground truth (GPS pass, hallway test, or dataset). Optional: fix the s/m double boxes, stabilization.
+9. Project done. Left for the user: commit and push. Optional: delete `yolo11n.pt`, watch the annotated videos, stabilization.
 8. ~~Before the first push: `git init`, decide how to handle large videos.~~ Done: repo on GitHub, videos git-ignored.

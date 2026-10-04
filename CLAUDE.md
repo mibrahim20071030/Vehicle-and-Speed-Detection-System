@@ -43,7 +43,7 @@ calibration_overlay.png  reference picture of frame 0 with grid, points, line, z
 config.py          camera setup: loads SRC, DST, LINE_A, LINE_B, ZONE, FRAME_SIZE from calibration_points.json
 footage/           real clips (from Pexels)
 tools/             one-off scripts, not part of the pipeline: click_points.py, draw_calibration.py, calibration_report.py
-docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it)
+docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it), calibration.md (calibration details for readers; linked from the README)
 scripts/           annotate_line.py (Layer 1 manual check; with [start_s] [end_s] it adds a time/frame stamp, used for the Layer 7 hand-count video), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check), make_demo.py (Layer 6: annotated video + demo.gif)
 pytest.ini         puts the repo root on the import path for tests
 video.py           Layer 1: open_video, draw_overlay
@@ -172,7 +172,8 @@ These are consistency checks. They use the same lane-marking assumption, so they
 
 **Functions:**
 - `make_tracker(model_name="yolo26n.pt")` returns a NEW `YOLO(model_name)`. Call once per video. The tracker keeps state between calls, so never share one across videos, and keep it separate from `detector.model`.
-- `track_frame(tracker_model, frame)` returns a list of dicts: `{"track_id": int, "box": (x1, y1, x2, y2), "class_id": int, "confidence": float}`. Uses `tracker_model.track(frame, persist=True, tracker="bytetrack.yaml", conf=0.1, iou=0.5, classes=[2, 3, 5, 7], verbose=False)[0]`. Returns `[]` when `r.boxes.id is None`. Pairs IDs with boxes by index `i`.
+- `track_frame(tracker_model, frame)` returns a list of dicts: `{"track_id": int, "box": (x1, y1, x2, y2), "class_id": int, "confidence": float}`. Uses `tracker_model.track(frame, persist=True, tracker="bytetrack.yaml", conf=0.1, iou=0.5, classes=[2, 3, 5, 7], agnostic_nms=True, verbose=False)[0]`. Returns `[]` when `r.boxes.id is None`. Pairs IDs with boxes by index `i`.
+  - `agnostic_nms=True` added 2026-10-04 (Layer 7, user agreed): without it, duplicate boxes are merged only within one class, so a van labeled both car and truck kept two boxes, got two IDs and was counted twice (yolo26s / m only). Confirmed and tested on the tuning minute 0 to 60 s first: double counts n / s / m 0 / 3 / 6 before, 0 / 0 / 0 after. `detector.detect` is unchanged (only used for the Layer 2 check).
 
 **Tests (`tests/test_tracker.py`):**
 - `test_one_vehicle_keeps_one_id`: on `tests/data/one_car.mp4`, count how often each track ID appears with `collections.Counter`. Assert at least one frame had tracks, and the most common ID appears in at least 80% of frames that had tracks. Do not assume IDs start at 1.
@@ -340,7 +341,7 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
 - `test_process_video_frame_range`: `start_frame=3, end_frame=8` gives `frames_processed == 5`, `start_frame == 3`, `end_frame == 8`, `processing_fps is None`.
 - `test_process_video_writes_output`: with `output_path`, the written video has 10 frames.
 
-**Demo GIF:** `python scripts/make_demo.py [start_s] [seconds]` (default 0, 10) runs `process_video` on `footage/Untitled design.mp4` with `output_path=footage/annotated_demo.mp4` (git-ignored), prints the result, and writes `demo.gif` (10 fps, 640 px wide) with Pillow (ffmpeg is not installed on this machine). Footage must have no identifiable people.
+**Demo GIF:** `python scripts/make_demo.py [start_s] [seconds]` (default 0, 7) runs `process_video` on `footage/Untitled design.mp4` with `output_path=footage/annotated_demo.mp4` (git-ignored), prints the result, and writes `demo.gif` (7.5 fps = every 4th frame so it plays at real speed, 640 px wide, about 4.6 MB; changed 2026-10-04 from 10 s / 10 fps / 9.1 MB so GitHub loads it fast) with Pillow (ffmpeg is not installed on this machine). Footage must have no identifiable people.
 
 **Real-footage check (2026-10-04, first 300 frames, yolo26n):** 16 positive, 0 negative (the Layer 4 run gave 15; the user's hand count is 16). 19 vehicles listed: 16 counted, 3 with a speed but not counted (IDs 1, 7: past the line at frame 0; 522: still before the line at frame 299). Speeds 56 to 101 km/h. Processing 37.9 fps (CPU/GPU of this machine, with video writing). `demo.gif` is 9.1 MB.
 
@@ -387,15 +388,16 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
 - **Limits to state:** one dusk clip, near carriageway only, handheld or slightly moving camera, speed not independently validated.
 - **Tuning vs reporting split (decided 2026-10-04, replaces the 3 to 5 minute spec):** both parts come from `footage/Untitled design.mp4` (the 185 s export). Tune on 0 to 60 s, report on 60 to 120 s (1 minute). "Tuning" = changing our settings (`conf`, `iou`, `window`, line, zone), never training the model. Results on 60 to 120 s are run once with the final settings. The README must say: both parts come from the same camera and conditions, the reported part is 1 minute, and the camera drifts during it (see Scene). The program gets only 60 to 120 s through `process_video(..., start_frame=1800, end_frame=3600)` (decided in Layer 6).
 - **Hand count (done 2026-10-04):** 60 to 120 s, near carriageway, from `footage/count_60_120.mp4`: **83 positive, 0 negative**.
-- **Results (2026-10-04, run once with the final settings):**
+- **Results (2026-10-04, final, with `agnostic_nms=True`, run once):**
 
-| Model | Counts (+/-) | Count error | FPS |
-|---|---|---|---|
-| yolo26n | 83 / 0 | 0.0% | 58.6 |
-| yolo26s | 85 / 0 | 2.4% | 54.9 |
-| yolo26m | 86 / 0 | 3.6% | 44.7 |
+| Model | Counts (+/-) | Count error | FPS | Median speed |
+|---|---|---|---|---|
+| yolo26n | 83 / 0 | 0.0% | 59.1 | 80.6 km/h |
+| yolo26s | 83 / 0 | 0.0% | 55.8 | 81.7 km/h |
+| yolo26m | 83 / 0 | 0.0% | 45.2 | 81.6 km/h |
 
-  Every extra s / m count is one vehicle with two boxes (two IDs crossing in the same frame at the same point; s: frames 1945, 3278; m: 3278, 3479, 3550). All nano crossings are also in s and m. Totals only; no per-car matching against the hand count. Speed sanity (mean per vehicle): median 80.6 / 79.2 / 80.2 km/h (n / s / m); posted limit 50 mph = 80.5 km/h (user, Street View). Calibration report re-run: matches the baseline.
+  Before the fix (first run): n 83 (58.6 fps), s 85, m 86. Every extra s / m count was one vehicle with two boxes (two IDs crossing in the same frame at the same point; s: frames 1945, 3278; m: 3278, 3479, 3550), mostly car + truck. The README tells this story and says the problem was first noticed on the reported minute. Totals only; no per-car matching against the hand count. Posted limit 50 mph = 80.5 km/h (user, Street View). Calibration report re-run: matches the baseline.
+- **Speed error: closed as not possible with this footage (decided 2026-10-04 with the user).** No known-speed test is available (no GPS pass, hallway test or usable dataset). The README reports the median speed against the posted limit as a plausibility check only, never as an error, and says what would be needed to measure it. The speed-error code stays for later.
 
 ---
 
@@ -435,4 +437,4 @@ Run the benchmark both with and without stabilization and report the difference.
 - `uvicorn main:app` runs, and `POST /analyze` returns counts and speeds for a real clip.
 - README shows the n/s/m table, calibration error, ground truth methods, and limitations.
 - Demo GIF in the repo.
-- Speed error against ground truth (GPS pass, hallway test, or dataset) still needed for the final README.
+- ~~Speed error against ground truth.~~ Not possible with this footage (decided 2026-10-04); README states speeds are estimates checked only against the posted limit.
