@@ -76,11 +76,16 @@ Model weights: `yolo26n.pt`, `yolo26s.pt`, `yolo26m.pt` (YOLO26, the current Ult
 
 ## Scene
 
-- Calibration clip: `footage/Untitled design.mp4` (file name has a space), 1920 x 1080, 30 fps, 3622 frames (about 2 minutes, a trimmed copy of a 3 minute clip). Evening, dusk, near LaGuardia Airport.
-- Second file: `footage/original_3min.mp4`, 3840 x 2160, 29.97 fps, 5552 frames. Different resolution from the calibration clip; see Open items.
+- Calibration clip: `footage/Untitled design.mp4` (file name has a space), 1920 x 1080, 30 fps, **5557 frames (185.2 s)**. Evening, dusk, near LaGuardia Airport.
+  - Replaced 2026-10-04 by the user with a 1920 x 1080 export of the full 3-minute clip, under the same file name. The earlier file (3622 frames, about 2 minutes, a trimmed copy) is gone. Layers 1 to 5 checks and `tests/data/*` were made from the earlier file.
+  - Checked: frame 0 of the new file is identical to the old frame 0 (`tests/data/car.jpg`): 0.0 px shift on the horizon band and the road, mean pixel difference 0.84 (JPEG). The calibration is valid on frame 0.
+  - Late frames (60, 110, 150, 184 s, by eye): the road sits higher in the frame than the calibration points, as described in the drift note below. The shift at 150 s and 184 s looks about the same as at 110 s, not larger. The counting line still spans the near lanes.
+- Second file: `footage/original_3min.mp4`, 3840 x 2160, 29.97 fps, 5552 frames. The same 3 minutes at 4K. No longer needed (the 1080p export replaces it); the calibration does not fit it.
 - Elevated, oblique side view of a divided highway. A concrete median barrier separates the **near carriageway** (5 lanes; traffic appears to move left to right in the image, judging by the tail lights) from the far carriageway.
 - **Count and measure speed on the near carriageway only.** Far-lane vehicles are small and partly hidden by the barrier, and they map outside the speed zone.
 - The camera is **not perfectly fixed**. Measured against frame 0 (far horizon band): about -18 px shift at 10 s, -33 px at 17 s, -47 px at 90 s, -68 px at 110 s, with about 1 to 2% scale change. Stabilization is optional (see "Optional later: stabilization").
+  - Measured at the ROAD near the counting line (2026-10-04, 185 s export, median of 9 frames per time to remove cars, only readings with match score >= 0.8 trusted; rough): the dashes move from 0 to about -50 px in x during 0 to 35 s, stay at about -51 to -58 px from 35 to 95 s, move between about -35 and -85 px from 100 to 145 s, and are back near -50 to -60 px at 160 to 180 s. y moves only a few px. No 2-minute stretch is stable, and no stretch after the first seconds lines up with the frame-0 calibration.
+  - Decided 2026-10-04 (user): accept the drift, no stabilization for now. State it as a limitation in the README. Add stabilization only if the hand count shows missed lane 5 vehicles.
 - All pixel coordinates are in **original 1920 x 1080 frame pixels**. Do not crop or resize frames before detection or tracking. Ultralytics resizes internally and returns boxes in original coordinates.
 - No people visible. Source: Pexels (Pexels license, free to use). The README must name the source and license.
 
@@ -343,7 +348,7 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
 
 **`benchmark.py`:**
 - `MODELS = ["yolo26n.pt", "yolo26s.pt", "yolo26m.pt"]`.
-- `run_benchmark(count_clip, hand_counts, speed_clips)`: for each model, run `process_video` on the 3 to 5 minute count clip (counts and `processing_fps`) and on each `(clip_path, true_kmh)` speed clip. A speed clip is used only if exactly 1 vehicle is found (track IDs differ between runs, so results can't be matched by ID). Record `speed_clips_used`.
+- `run_benchmark(count_clip, hand_counts, speed_clips)`: for each model, run `process_video` on the 1-minute count clip (60 to 120 s, see "Tuning vs reporting split") (counts and `processing_fps`) and on each `(clip_path, true_kmh)` speed clip. A speed clip is used only if exactly 1 vehicle is found (track IDs differ between runs, so results can't be matched by ID). Record `speed_clips_used`.
 - `if __name__ == "__main__":` holds the real clip paths and ground truth, and prints a markdown table: Model, Counts (+/-), Count error, Speed MAE, FPS. The Speed MAE column prints `n/a` when no speed clips are given.
 - **Current clip has no independent speed ground truth.** Keep the speed-error machinery for a later GPS pass, hallway test, or dataset. The README must say speeds on this clip are estimates only.
 
@@ -373,7 +378,8 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
   - A wrong assumption about the dash cycle length scales every speed by the same percentage (a 3 m / 9 m metric pattern would make true speeds about 1.6% lower than reported).
   - Camera drift, if H is not updated: speeds read about 1% low at 17 s, 1 to 3% high around 60 s, and 1 to 5% high near 110 s.
 - **Limits to state:** one dusk clip, near carriageway only, handheld or slightly moving camera, speed not independently validated.
-- **Tuning vs reporting split:** tune on seconds 0 to 60, report on the rest. Say that both parts come from the same camera and conditions. Which file is used for the report clip is pending (see Open items).
+- **Tuning vs reporting split (decided 2026-10-04, replaces the 3 to 5 minute spec):** both parts come from `footage/Untitled design.mp4` (the 185 s export). Tune on 0 to 60 s, report on 60 to 120 s (1 minute). "Tuning" = changing our settings (`conf`, `iou`, `window`, line, zone), never training the model. Results on 60 to 120 s are run once with the final settings. The README must say: both parts come from the same camera and conditions, the reported part is 1 minute, and the camera drifts during it (see Scene). How the program gets only 60 to 120 s (a cut clip file, or start/end frame arguments to `process_video`) is decided in Layer 6/7.
+- **Hand count needed:** 60 to 120 s, near carriageway, per direction, same definition as the program.
 
 ---
 
@@ -404,7 +410,7 @@ Run the benchmark both with and without stabilization and report the difference.
 - ~~A way to reset tracker state without reloading the model.~~ Resolved 2026-10-04 (see Layer 3).
 - ~~Whether `mp4v` works for `cv2.VideoWriter` on this machine.~~ Verified 2026-10-03: works (Windows 11, opencv-python 5.0.0, Python 3.14.6).
 - Whether the hallway test object is detected as a vehicle class.
-- Report clip for the count benchmark: the calibration does NOT match `footage/original_3min.mp4` at its native 3840 x 2160 (checked 2026-10-03 with `tools/draw_calibration.py`: the grid lands in the sky, top-left quarter). Frame 0 shows the same scene and vehicles as the calibration clip at twice the resolution, so a x2 pixel scale or a downscale to 1920 x 1080 may fit, but neither is verified and the "do not resize" rule applies. Keep the 3 to 5 minute spec and do not split until this is resolved.
+- ~~Report clip for the count benchmark.~~ Resolved 2026-10-04: the user replaced `footage/Untitled design.mp4` with a 1920 x 1080 export of the 3-minute clip; frame 0 matches the calibration (see Scene). Earlier note: the calibration does NOT match `footage/original_3min.mp4` at its native 3840 x 2160 (checked 2026-10-03 with `tools/draw_calibration.py`: the grid lands in the sky, top-left quarter). Frame 0 shows the same scene and vehicles as the calibration clip at twice the resolution, so a x2 pixel scale or a downscale to 1920 x 1080 may fit, but neither is verified and the "do not resize" rule applies. Keep the 3 to 5 minute spec and do not split until this is resolved. **Decided 2026-10-04:** the user is getting a 1920 x 1080 export of the 3-minute clip. When it arrives, confirm the grid matches with `tools/draw_calibration.py` (frame 0 and a late frame) and check its fps.
 - ~~Clip license for both files in `footage/`.~~ Resolved 2026-10-03: both are from Pexels, free to use.
 
 ## Project definition of done
