@@ -4,3 +4,4 @@ __pycache__/
 *.pt
 
 footage/**/*.mp4
+footage/layer_checks/
