@@ -37,7 +37,7 @@ Built:
 - `tools/click_points.py <image>`: prints clicked pixels, Esc quits. Not run yet (needs a display).
 - `tools/draw_calibration.py <video> <out.png>`: grid, 21 points, counting line, ZONE on frame 0.
 - `tools/calibration_report.py`: fit quality, held-out row 3 test, edge line check.
-- `.gitignore`: `.venv/`, `__pycache__/`, `.pytest_cache/`, `*.pt`. (`footage/` was removed 2026-10-03 at the user's request; the clips are from Pexels.)
+- `.gitignore`: `.venv/`, `__pycache__/`, `.pytest_cache/`, `*.pt`, `footage/*.mp4` (the last one added by the user before the first push).
 
 **Test status:** 10 passed (3 Layer 1 + 6 calibration config + 1 rewritten 4-point test).
 
@@ -63,16 +63,36 @@ Built:
 - `Untitled design.mp4` (name has a space): 1920 x 1080, 30 fps, 3622 frames (120.7 s). Calibration verified on frame 0: `footage/overlay_untitled_design.png` matches `calibration_overlay.png`.
 - `original_3min.mp4`: 3840 x 2160, 29.97 fps, 5552 frames. Calibration does NOT match at native resolution: `footage/overlay_original_3min.png` shows the grid in the sky. Frame 0 shows the same scene at twice the resolution.
 
-### Before Layer 2 (2026-10-03)
-- `tests/data/car.jpg` = frame 0 of `footage/Untitled design.mp4` (Pexels), 1920x1080, JPEG quality 90, 231 KB. yolo26n (conf 0.3, iou 0.5, classes 2/3/5/7) finds 10 cars, confidence 0.32 to 0.56 (dusk lowers confidence).
+## Session 2: 2026-10-03 (Layer 1 finished, prep for Layer 2)
+
+### Done
+- Tests: 10 passed at the start and at the end of the session.
+- Layer 1 manual check run on the real clip (details under Layer 1 above). **Layer 1 is DONE.**
+- `tests/data/car.jpg` = frame 0 of `footage/Untitled design.mp4` (Pexels), 1920x1080, JPEG quality 90, 231 KB. yolo26n (conf 0.3, iou 0.5, classes 2/3/5/7) finds 10 cars, confidence 0.32 to 0.56 (dusk lowers confidence; dark cars may fall below 0.3 on the real clip, check in Layer 2's visual check).
+- `yolo26n.pt` downloaded. `yolo11n.pt` is still in the repo root but no longer used (safe to delete).
+
+### Decisions made with the user
+1. **Footage license:** both clips are from Pexels, free to use (user's statement). The license notes were removed from CLAUDE.md and the open item was marked resolved. The README must still name the source and license. Caveat raised: the Pexels license does not allow redistributing unaltered copies, so putting raw clips in a public repo is a grey area; linking to the Pexels page avoids it.
+2. **`.gitignore`:** ~~do NOT add entries because of licensing.~~ Changed 2026-10-04 at the user's choice: `footage/*.mp4` is git-ignored. Video files stay local only and are never pushed (GitHub's 100 MB limit, and the Pexels license does not allow redistributing unaltered copies). The README links to the Pexels pages instead.
+3. **Model family: YOLO26** (`yolo26n/s/m.pt`). CLAUDE.md updated in every place that named YOLO11. Checked: `iou=` still changes results, so `detect()` keeps `iou=0.5`.
+4. **`car.jpg`:** cut from the clip (frame 0).
+5. **Layer 2 visual check:** add `scripts/annotate_detections.py <in.mp4> <out.mp4>` (a script, same shape as `annotate_line.py`, that calls `detect` per frame and draws the boxes with `draw_overlay`). Only process the first few hundred frames. List it in CLAUDE.md's repo layout. Only Layers 2 and 3 need such scripts; from Layer 6 on `process_video(..., output_path=...)` writes the annotated video.
+
+### Explained to the user this session (they found the number of files confusing)
+- How to run the project (PowerShell, `.venv` activation, pytest, the scripts and tools).
+- The difference between a file, a module (`.py` with functions, imported, e.g. `video.py`) and a script (`.py` run with `python ...`, e.g. `scripts/annotate_line.py`), and what each file/folder in the repo is for. When adding a new file, say which group it belongs to and why it exists.
 
 ## Open items / blockers
 - **3-minute file:** choose (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
-- Not a git repo yet. Run `git init` before much more code. GitHub rejects files over 100 MB: `original_3min.mp4` (569 MB) and `annotated_line.mp4` (125 MB) are over it; `Untitled design.mp4` is 85 MB. Decide how to handle these before the first push.
+- ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
 - Remaining CLAUDE.md open items: ByteTrack thresholds vs `conf`, resetting tracker state, hallway test object class.
 
-## Resume here
+## Resume here (next session: build the remaining layers)
 1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 10 pass.
-2. Start Layer 2 (`detector.py`, with `yolo26n.pt`). `tests/data/car.jpg` is ready. Add `scripts/annotate_detections.py` for the visual check (list it in CLAUDE.md's repo layout).
-3. Then Layer 3 (needs `tests/data/one_car.mp4`, about 5 s, exactly one vehicle) and Layer 4 (rest of `counting.py`).
-4. Decide the 3-minute file question before the benchmark (Layer 7).
+2. **Layer 2:** `detector.py` (`yolo26n.pt`), `tests/test_detector.py`. `tests/data/car.jpg` is ready. Add `scripts/annotate_detections.py` for the visual check (list it in CLAUDE.md's repo layout).
+3. **Layer 3:** `tracker.py`, `tests/test_tracker.py`. Needs `tests/data/one_car.mp4` (about 5 s, exactly one vehicle; cut from the clip). Check `bytetrack.yaml` thresholds vs `conf=0.1`, and how to reset tracker state.
+4. **Layer 4:** the rest of `counting.py`, `tests/test_counting.py`.
+5. **Layer 5:** `check_calibration` in `calibration.py`, `speed.py`, the rest of `tests/test_speed.py`.
+6. **Layer 6:** `pipeline.py`, `main.py`, `tests/test_api.py`, demo video/GIF.
+7. **Layer 7:** `metrics.py`, `benchmark.py`, `tests/test_metrics.py`, README. Decide the 3-minute file question first.
+8. ~~Before the first push: `git init`, decide how to handle large videos.~~ Done: repo on GitHub, videos git-ignored.
