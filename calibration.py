@@ -1,3 +1,5 @@
+import math
+
 import cv2
 import numpy as np
 
@@ -25,3 +27,15 @@ def to_meters(H, x, y):
     """Convert pixel (x, y) to road position (X, Y) in meters."""
     a, b, w = H @ np.array([x, y, 1.0])
     return (a / w, b / w)
+
+
+def check_calibration(H, pixel_a, pixel_b, known_m):
+    """Measure the distance between two road pixels with H and compare it with a known distance in meters.
+
+    Returns (measured_m, percent_error). Use two points that were NOT used to build H.
+    """
+    pa = to_meters(H, *pixel_a)
+    pb = to_meters(H, *pixel_b)
+    measured_m = float(math.dist(pa, pb))
+    percent_error = abs(measured_m - known_m) / known_m * 100
+    return measured_m, percent_error

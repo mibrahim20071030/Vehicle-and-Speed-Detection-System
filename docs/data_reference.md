@@ -23,8 +23,8 @@ Functions marked "planned" follow CLAUDE.md and are not built yet; update this f
 | `fps` | `open_video` (built) | float | `30.0`, the video's frame rate |
 | `H` | `build_homography` (built) | array (3, 3) | pixel to meter matrix |
 | `tracker` | `make_tracker` (built) | YOLO model | detects and tracks; remembers vehicles between frames |
-| `counter_state` | `make_counter_state` (planned) | dict | see below |
-| `speed_state` | `make_speed_state` (planned) | dict | see below |
+| `counter_state` | `make_counter_state` (built) | dict | see below |
+| `speed_state` | `make_speed_state` (built) | dict | see below |
 | `class_of` | `process_video` (planned) | dict | `{track_id: class_id}`, e.g. `{7: 2, 12: 7}` |
 | `speed_lists` | `process_video` (planned) | dict | `{track_id: [every speed measured]}`, e.g. `{7: [81.0, 80.6]}` |
 
@@ -57,7 +57,7 @@ Functions marked "planned" follow CLAUDE.md and are not built yet; update this f
 | `frame_idx` | `process_video` | int | `41`, frame number starting at 0 |
 | `tracks` | `track_frame` (built) | list of dicts | see below |
 | `t` | `for t in tracks` | dict | one vehicle from `tracks` |
-| `speeds` | `update_speeds` (planned) | dict | `{7: 81.0}`, speeds this frame only |
+| `speeds` | `update_speeds` (built) | dict | `{7: 81.0}`, speeds this frame only |
 
 `tracks`:
 
@@ -74,9 +74,9 @@ Layer 2's `detect` (built) returns the same shape without `"track_id"`. Track ID
 
 | Name | Made by | Type | Example |
 |---|---|---|---|
-| `reference_point(box)` | planned | tuple, pixels | `(859.05, 702.3)`, bottom-center of the box |
+| `reference_point(box)` | built | tuple, pixels | `(859.05, 702.3)`, bottom-center of the box |
 | `to_meters(H, x, y)` | built | tuple, meters | `(2.0, 7.25)` |
-| `prev`, `curr` | `update_counts` (planned) | tuple, pixels | last frame's and this frame's reference point |
+| `prev`, `curr` | `update_counts` (built) | tuple, pixels | last frame's and this frame's reference point |
 
 ## Output of `process_video` (planned)
 

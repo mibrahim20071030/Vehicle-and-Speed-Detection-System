@@ -128,7 +128,8 @@ These are consistency checks. They use the same lane-marking assumption, so they
 - `draw_overlay(frame, line_a, line_b, tracks=(), counts=None, speeds=None)` returns a NEW frame. Works on `frame.copy()` so the original is never changed. Draws:
   - the counting line from `line_a` to `line_b`, green, thickness 2
   - for each track: its box (thickness 2) and a label with `track_id` (use `t.get("track_id")`, since Layer 2 detections have none) and speed from `speeds` if present
-  - the counts as text in the top-left corner if `counts` is given
+  - if `counts` is given: a "Counts" title with `+: n  -: m` under it, in the top-right corner, red, scale 1.2, on a filled black box (changed 2026-10-04 at the user's request; was plain text in the top-left)
+  - track labels in yellow, scale 0.9, on a filled black box (changed 2026-10-04 at the user's request)
   - box corners converted to `int` before drawing
 
 **Test helper (`tests/helpers.py`):**
@@ -208,6 +209,10 @@ Use `assert crossed(...)` / `assert not crossed(...)`, not `is True` (NumPy bool
 
 **Known limit:** a reference point exactly on the line (side = 0) is not counted for that step. Rare with decimal coordinates.
 
+**Known limit (seen 2026-10-04):** a vehicle that loses its track before its reference point crosses the line is never counted. Example: car 227 (lane 5, barrier side) goes behind a nearer car at frame 140; its last point (982, 892) is still on the negative side, so it is missed. The user chose to deal with this later (check its effect in the hand count). Vehicles already past the line at frame 0 (IDs 1, 6, 7) are also not counted, because the first frame never counts.
+
+**Real-footage check (2026-10-04, first 300 frames, yolo26n):** program 15 positive, 0 negative. **User's hand count: 16** (all left to right). The one missed car is car 227, which goes behind the blue car (ID 221) just before the line. All 15 counted IDs are real crossings (no false counts). This is a 10 s spot check, not the benchmark hand count (Layer 7).
+
 **Built early:** `side_of_line` was built before Layers 2 to 4 for the calibration work (`tests/test_calibration_config.py` uses it). The rest of `counting.py` is still built in Layer 4.
 
 ---
@@ -238,7 +243,9 @@ Use `assert crossed(...)` / `assert not crossed(...)`, not `is True` (NumPy bool
 
 **Manual check (record in README):** on real footage, measure one road distance not used for H, run `check_calibration`, record the percent error. For the current clip, the held-out row 3 test in `tools/calibration_report.py` serves this purpose (it uses the same lane-marking assumption, so it is a consistency check only).
 
-**Built early:** `build_homography` and `to_meters` were built before Layers 2 to 4 for the calibration work. `check_calibration` and all of `speed.py` are still built in Layer 5.
+**Built early:** `build_homography` and `to_meters` were built before Layers 2 to 4 for the calibration work. `check_calibration` and all of `speed.py` were built in Layer 5 (2026-10-04).
+
+**Real-footage check (2026-10-04, first 300 frames, yolo26n, window 10, ZONE on):** 19 tracks got a speed. Mean speed per track 57 to 101 km/h (median 81). Within one track, single readings spread about +-10 to 15 km/h around its mean (a 10-frame window is 0.33 s, so box jitter of a few pixels shows up). Tracks with only 2 to 6 readings (IDs 1, 7, 227, 569: at the zone edge at the start/end of the 300 frames, or lost) are the least reliable. Estimates only; no independent ground truth.
 
 **Tests (`tests/test_calibration_config.py`):**
 

@@ -2,7 +2,8 @@ import cv2
 
 LINE_COLOR = (0, 255, 0)  # green (BGR)
 BOX_COLOR = (0, 0, 255)  # red (BGR)
-TEXT_COLOR = (255, 255, 255)  # white (BGR)
+COUNTS_COLOR = (0, 0, 255)  # red (BGR), counts title and numbers
+COUNTS_SCALE = 1.2
 LABEL_COLOR = (0, 255, 255)  # yellow (BGR), track ID and speed text
 LABEL_BG_COLOR = (0, 0, 0)  # black (BGR), filled box behind the label
 LABEL_SCALE = 0.9
@@ -40,7 +41,15 @@ def draw_overlay(frame, line_a, line_b, tracks=(), counts=None, speeds=None):
             cv2.putText(out, label, (x1 + 2, ty), cv2.FONT_HERSHEY_SIMPLEX, LABEL_SCALE, LABEL_COLOR, 2)
 
     if counts is not None:
-        text = f"+: {counts['positive']}  -: {counts['negative']}"
-        cv2.putText(out, text, (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.7, TEXT_COLOR, 2)
+        # "Counts" title with the totals under it, in the top-right corner on a black box
+        lines = ["Counts", f"+: {counts['positive']}  -: {counts['negative']}"]
+        sizes = [cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, COUNTS_SCALE, 2)[0] for text in lines]
+        box_w = max(w for w, _ in sizes) + 20
+        line_h = max(h for _, h in sizes) + 14
+        x0 = max(out.shape[1] - box_w - 10, 0)
+        cv2.rectangle(out, (x0, 10), (x0 + box_w, 10 + line_h * len(lines) + 6), LABEL_BG_COLOR, -1)
+        for i, text in enumerate(lines):
+            cv2.putText(out, text, (x0 + 10, 10 + line_h * (i + 1)), cv2.FONT_HERSHEY_SIMPLEX,
+                        COUNTS_SCALE, COUNTS_COLOR, 2)
 
     return out

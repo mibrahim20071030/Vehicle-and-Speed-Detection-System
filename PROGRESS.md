@@ -112,17 +112,39 @@ Built:
 1. Approving a plan is the go-ahead to build; no extra thumbs up needed. Only commits and pushes stay with the user.
 2. `one_car.mp4` comes from a crop of the calibration clip (not a new Pexels clip, not synthetic).
 
+### Layer 4: line counting (DONE, tests pass, real-footage check done)
+- `counting.py`: `iou`, `crossed`, `reference_point`, `make_counter_state`, `update_counts` added below `side_of_line`, as specified.
+- `tests/test_counting.py`: the 7 tests from CLAUDE.md.
+- **Test status:** 21 passed.
+- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/annotated_counts.mp4` (git-ignored): **15 positive, 0 negative**. Counted IDs: 23, 108, 123, 168, 178, 196, 221, 248, 281, 267, 313, 365, 459, 479, 507.
+  - Car 227 NOT counted (lost at (982, 892), still on the negative side). The user chose to deal with this later. Recorded as a known limit in CLAUDE.md Layer 4.
+  - IDs 1, 6, 7 were already past the line at frame 0, so they are not counted (first frame never counts).
+  - **User's hand count of the same 10 s: 16** (program 15). The difference is car 227, hidden behind the blue car just before the line. No false counts. Count error on this spot check: 1 of 16 (6.25%).
+  - Count text changed at the user's request: "Counts" title plus `+: n  -: m`, top-right, red (`COUNTS_COLOR`), scale 1.2 (`COUNTS_SCALE`), on a black box. CLAUDE.md Layer 1 updated. `footage/annotated_counts.mp4` regenerated.
+
+## Session 5: 2026-10-04 (Layer 5)
+
+### Layer 5: homography and speed (DONE in code, tests pass; waiting for the user's look at the video)
+- `calibration.py`: `check_calibration` added (percent error computed inline; `metrics.percent_error` is Layer 7).
+- `speed.py` (new module): `speed_kmh`, `make_speed_state`, `update_speeds` as specified. Positions stored as plain Python floats. Time uses the stored frame numbers.
+- `tests/test_speed.py`: 5 new tests (check_calibration, two speed_kmh, constant motion, outside zone) plus the rewritten 4-point test.
+- **Test status:** 26 passed. `tools/calibration_report.py` still matches the baseline.
+- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/annotated_speeds.mp4` (git-ignored), with counts and speed labels. Speed labels now seen on real frames.
+  - 19 tracks got a speed. Mean per track 57 to 101 km/h, median 81. Counts still 15 positive, 0 negative.
+  - Single readings within a track vary about +-10 to 15 km/h (0.33 s window). Short tracks (IDs 1, 7, 227, 569; 2 to 6 readings) are least reliable.
+  - Still to do by the user: watch the video, and look up the posted speed limit (Street View) for the sanity check.
+
 ## Open items / blockers
 - **3-minute file:** choose (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
 - ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
 - Remaining CLAUDE.md open items: hallway test object class. (ByteTrack thresholds and tracker reset resolved in Session 4.)
 
 ## Resume here (next session: build the remaining layers)
-1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 14 pass.
+1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 26 pass.
 2. ~~**Layer 2**~~ Done (Session 3). The user still watches `footage/annotated_detections.mp4` to confirm.
 3. ~~**Layer 3**~~ Done (Session 4). The user still watches `footage/annotated_tracks.mp4` to confirm.
-4. **Layer 4:** the rest of `counting.py`, `tests/test_counting.py`.
-5. **Layer 5:** `check_calibration` in `calibration.py`, `speed.py`, the rest of `tests/test_speed.py`.
+4. ~~**Layer 4**~~ Done (Session 4).
+5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/annotated_speeds.mp4` and checks the posted speed limit.
 6. **Layer 6:** `pipeline.py`, `main.py`, `tests/test_api.py`, demo video/GIF.
 7. **Layer 7:** `metrics.py`, `benchmark.py`, `tests/test_metrics.py`, README. Decide the 3-minute file question first.
 8. ~~Before the first push: `git init`, decide how to handle large videos.~~ Done: repo on GitHub, videos git-ignored.
