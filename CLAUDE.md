@@ -44,7 +44,7 @@ config.py          camera setup: loads SRC, DST, LINE_A, LINE_B, ZONE, FRAME_SIZ
 footage/           real clips (from Pexels)
 tools/             one-off scripts, not part of the pipeline: click_points.py, draw_calibration.py, calibration_report.py
 docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it)
-scripts/           annotate_line.py (Layer 1 manual check), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check)
+scripts/           annotate_line.py (Layer 1 manual check), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check), make_demo.py (Layer 6: annotated video + demo.gif)
 pytest.ini         puts the repo root on the import path for tests
 video.py           Layer 1: open_video, draw_overlay
 detector.py        Layer 2: detect
@@ -214,7 +214,7 @@ Use `assert crossed(...)` / `assert not crossed(...)`, not `is True` (NumPy bool
 
 **Known limit:** a reference point exactly on the line (side = 0) is not counted for that step. Rare with decimal coordinates.
 
-**Known limit (seen 2026-10-04):** a vehicle that loses its track before its reference point crosses the line is never counted. Example: car 227 (lane 5, barrier side) goes behind a nearer car at frame 140; its last point (982, 892) is still on the negative side, so it is missed. The user chose to deal with this later (check its effect in the hand count). Vehicles already past the line at frame 0 (IDs 1, 6, 7) are also not counted, because the first frame never counts.
+**Known limit (seen 2026-10-04):** a vehicle that loses its track before its reference point crosses the line is never counted. Example: car 227 (lane 5, barrier side) goes behind a nearer car at frame 140; its last point (982, 892) is still on the negative side, so it is missed. The user chose to deal with this later (check its effect in the hand count). Layer 6 run on the 185 s export (2026-10-04): the same car (now ID 246) WAS counted. Its confidence drops to 0.24 at frame 141, it crosses at frame 142, and its track is lost at frame 143. A 1-frame margin, so the limit still applies. Vehicles already past the line at frame 0 (IDs 1, 6, 7) are also not counted, because the first frame never counts.
 
 **Real-footage check (2026-10-04, first 300 frames, yolo26n):** program 15 positive, 0 negative. **User's hand count: 16** (all left to right). The one missed car is car 227, which goes behind the blue car (ID 221) just before the line. All 15 counted IDs are real crossings (no false counts). This is a 10 s spot check, not the benchmark hand count (Layer 7).
 
@@ -316,12 +316,14 @@ The pixel positions are measurements. The meter values rest on the NYSDOT lane-m
 Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=ZONE`.
 
 **`pipeline.py`:**
-- `process_video(path, src, dst, line_a, line_b, window=10, model_name="yolo26n.pt", zone=None, output_path=None)`:
+- `process_video(path, src, dst, line_a, line_b, window=10, model_name="yolo26n.pt", zone=None, output_path=None, start_frame=0, end_frame=None)`:
+  - Frame range (added 2026-10-04, user's choice over cutting a clip file): only frames `start_frame` to `end_frame - 1` are processed (`end_frame=None` = to the end). Frames before `start_frame` are skipped with `cap.grab()` (exact; seeking in an mp4 can land on the wrong frame). `frame_idx` keeps the full video's numbering, so frame numbers match the hand count. Layer 7 report range: `start_frame=1800, end_frame=3600` (60.0 to 120.0 s).
   - `open_video`, `build_homography`, `make_tracker(model_name)`, `make_counter_state`, `make_speed_state`, all ONCE before the loop.
   - Per frame: `track_frame` then `update_counts` then `update_speeds` then (if `output_path`) `draw_overlay` and write the frame with a `cv2.VideoWriter` sized from the input video's width and height.
   - Keep `class_of[track_id]` and a list of speeds per track. Reported speed per vehicle = average of its list, rounded to 0.1.
-  - Timing: start `time.perf_counter()` when `frame_idx == 5` (WARMUP_FRAMES), at the top of the loop. `processing_fps = (frame_idx - 5) / elapsed`, or `None` if the video had 5 frames or fewer.
-  - Returns `{"model", "frames_processed", "fps", "processing_fps", "counts", "vehicles": [{"track_id", "class", "speed_kmh"}]}`. Class names from `{2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}`.
+  - Timing: start `time.perf_counter()` when `frames_processed == 5` (WARMUP_FRAMES, counted from the first processed frame), at the top of the loop. `processing_fps = (frames_processed - 5) / elapsed`, or `None` if 5 frames or fewer were processed.
+  - Returns `{"model", "frames_processed", "fps", "processing_fps", "start_frame", "end_frame", "counts", "vehicles": [{"track_id", "class", "speed_kmh", "counted"}]}`. `end_frame` = last processed frame + 1. Class names from `{2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}` (class of the track's latest frame).
+  - `vehicles` (decided 2026-10-04 with the user): every track that crossed the line OR got at least one speed, sorted by ID. `speed_kmh` is `None` for a counted vehicle that never got a speed. `counted` says whether it crossed the line. Far-lane tracks with neither are left out. The annotated video still shows every track.
   - `fps` is the video's rate. `processing_fps` is how fast the program ran. Never mix them.
 
 **`main.py`:**
@@ -335,8 +337,12 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
 - `test_rejects_missing_file`: posting with no file gives 422.
 - `test_process_video_output_shape`: on the 10-frame gray video: `frames_processed == 10`, counts both 0, `vehicles == []`.
 - `test_analyze_small_video`: posting the gray video gives 200 with `counts` and `vehicles` in the JSON.
+- `test_process_video_frame_range`: `start_frame=3, end_frame=8` gives `frames_processed == 5`, `start_frame == 3`, `end_frame == 8`, `processing_fps is None`.
+- `test_process_video_writes_output`: with `output_path`, the written video has 10 frames.
 
-**Demo GIF:** run `process_video(..., output_path="annotated.mp4")` on a real clip, then convert, for example `ffmpeg -i annotated.mp4 -vf "fps=10,scale=640:-1" demo.gif`. Footage must have no identifiable people.
+**Demo GIF:** `python scripts/make_demo.py [start_s] [seconds]` (default 0, 10) runs `process_video` on `footage/Untitled design.mp4` with `output_path=footage/annotated_demo.mp4` (git-ignored), prints the result, and writes `demo.gif` (10 fps, 640 px wide) with Pillow (ffmpeg is not installed on this machine). Footage must have no identifiable people.
+
+**Real-footage check (2026-10-04, first 300 frames, yolo26n):** 16 positive, 0 negative (the Layer 4 run gave 15; the user's hand count is 16). 19 vehicles listed: 16 counted, 3 with a speed but not counted (IDs 1, 7: past the line at frame 0; 522: still before the line at frame 299). Speeds 56 to 101 km/h. Processing 37.9 fps (CPU/GPU of this machine, with video writing). `demo.gif` is 9.1 MB.
 
 ---
 
@@ -378,7 +384,7 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
   - A wrong assumption about the dash cycle length scales every speed by the same percentage (a 3 m / 9 m metric pattern would make true speeds about 1.6% lower than reported).
   - Camera drift, if H is not updated: speeds read about 1% low at 17 s, 1 to 3% high around 60 s, and 1 to 5% high near 110 s.
 - **Limits to state:** one dusk clip, near carriageway only, handheld or slightly moving camera, speed not independently validated.
-- **Tuning vs reporting split (decided 2026-10-04, replaces the 3 to 5 minute spec):** both parts come from `footage/Untitled design.mp4` (the 185 s export). Tune on 0 to 60 s, report on 60 to 120 s (1 minute). "Tuning" = changing our settings (`conf`, `iou`, `window`, line, zone), never training the model. Results on 60 to 120 s are run once with the final settings. The README must say: both parts come from the same camera and conditions, the reported part is 1 minute, and the camera drifts during it (see Scene). How the program gets only 60 to 120 s (a cut clip file, or start/end frame arguments to `process_video`) is decided in Layer 6/7.
+- **Tuning vs reporting split (decided 2026-10-04, replaces the 3 to 5 minute spec):** both parts come from `footage/Untitled design.mp4` (the 185 s export). Tune on 0 to 60 s, report on 60 to 120 s (1 minute). "Tuning" = changing our settings (`conf`, `iou`, `window`, line, zone), never training the model. Results on 60 to 120 s are run once with the final settings. The README must say: both parts come from the same camera and conditions, the reported part is 1 minute, and the camera drifts during it (see Scene). The program gets only 60 to 120 s through `process_video(..., start_frame=1800, end_frame=3600)` (decided in Layer 6).
 - **Hand count needed:** 60 to 120 s, near carriageway, per direction, same definition as the program.
 
 ---

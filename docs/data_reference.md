@@ -25,8 +25,8 @@ Functions marked "planned" follow CLAUDE.md and are not built yet; update this f
 | `tracker` | `make_tracker` (built) | YOLO model | detects and tracks; remembers vehicles between frames |
 | `counter_state` | `make_counter_state` (built) | dict | see below |
 | `speed_state` | `make_speed_state` (built) | dict | see below |
-| `class_of` | `process_video` (planned) | dict | `{track_id: class_id}`, e.g. `{7: 2, 12: 7}` |
-| `speed_lists` | `process_video` (planned) | dict | `{track_id: [every speed measured]}`, e.g. `{7: [81.0, 80.6]}` |
+| `class_of` | `process_video` (built) | dict | `{track_id: class_id}`, e.g. `{7: 2, 12: 7}` |
+| `speed_lists` | `process_video` (built) | dict | `{track_id: [every speed measured]}`, e.g. `{7: [81.0, 80.6]}` |
 
 `counter_state` (called `state` inside `update_counts`):
 
@@ -54,7 +54,7 @@ Functions marked "planned" follow CLAUDE.md and are not built yet; update this f
 | Name | Made by | Type | Example |
 |---|---|---|---|
 | `frame` | `cap.read()` | array (1080, 1920, 3), uint8, BGR | the image |
-| `frame_idx` | `process_video` | int | `41`, frame number starting at 0 |
+| `frame_idx` | `process_video` | int | `41`, frame number in the FULL video (starts at `start_frame`, not 0, when a range is given) |
 | `tracks` | `track_frame` (built) | list of dicts | see below |
 | `t` | `for t in tracks` | dict | one vehicle from `tracks` |
 | `speeds` | `update_speeds` (built) | dict | `{7: 81.0}`, speeds this frame only |
@@ -78,17 +78,25 @@ Layer 2's `detect` (built) returns the same shape without `"track_id"`. Track ID
 | `to_meters(H, x, y)` | built | tuple, meters | `(2.0, 7.25)` |
 | `prev`, `curr` | `update_counts` (built) | tuple, pixels | last frame's and this frame's reference point |
 
-## Output of `process_video` (planned)
+## Output of `process_video` (built)
 
 ```python
 {
     "model": "yolo26n.pt",
-    "frames_processed": 3622,
+    "frames_processed": 1800,
     "fps": 30.0,                          # the video's frame rate
     "processing_fps": 45.2,               # how fast the program ran
+    "start_frame": 1800,                  # first frame processed
+    "end_frame": 3600,                    # last frame processed + 1
     "counts": {"positive": 214, "negative": 0},
-    "vehicles": [{"track_id": 7, "class": "car", "speed_kmh": 81.2}, ...],
+    "vehicles": [
+        {"track_id": 7, "class": "car", "speed_kmh": 81.2, "counted": True},
+        {"track_id": 9, "class": "car", "speed_kmh": None, "counted": True},    # crossed, no speed
+        {"track_id": 12, "class": "truck", "speed_kmh": 74.0, "counted": False}, # speed, did not cross
+    ],
 }
 ```
 
 Class names: `{2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}`.
+
+`vehicles` holds every track that crossed the line OR got at least one speed, sorted by ID. `speed_kmh` is the mean of that track's `speed_lists` entry, rounded to 0.1.

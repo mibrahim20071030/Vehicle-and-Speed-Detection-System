@@ -134,17 +134,28 @@ Built:
   - Single readings within a track vary about +-10 to 15 km/h (0.33 s window). Short tracks (IDs 1, 7, 227, 569; 2 to 6 readings) are least reliable.
   - Still to do by the user: watch the video, and look up the posted speed limit (Street View) for the sanity check.
 
+## Session 6: 2026-10-04 (Layer 6)
+
+### Layer 6: pipeline and API (DONE in code, tests pass; waiting for the user's look at the video/GIF)
+- `pipeline.py`: `process_video` with new `start_frame` / `end_frame` arguments (user's choice over cutting a clip file). Frames before `start_frame` are skipped with `cap.grab()`; frame numbers stay full-video numbers. Layer 7 uses `start_frame=1800, end_frame=3600`.
+- `vehicles` list rule (user's choice): every track that crossed the line OR got a speed. `speed_kmh = None` when counted without a speed; new `counted` field. Result dict also has `start_frame`, `end_frame`.
+- `main.py`: `/health`, `/analyze` as specified. The temp file is closed before `process_video` opens it (needed on Windows).
+- `tests/test_api.py`: the 5 CLAUDE.md tests + frame range + output video. **Test status:** 33 passed.
+- `scripts/make_demo.py`: writes `footage/annotated_demo.mp4` (git-ignored) and `demo.gif` (Pillow, since ffmpeg is not installed). `demo.gif` is 9.1 MB (100 frames, 640 px); shorten or shrink it if GitHub is slow to show it.
+- Real run, first 300 frames: **16 positive, 0 negative** (Layer 4 run: 15; hand count: 16). Track IDs differ from the Layer 4 run (e.g. 106/120 instead of 108/123), so this run's tracking was slightly different; the extra count IS the hidden lane 5 car (old ID 227, now ID 246). The user confirmed by eye that all crossing cars were counted. Traced: ID 246 is seen frames 121 to 143, its confidence drops to 0.24 at frame 141 as it goes behind the blue car, it crosses at frame 142 and is lost at frame 143. It was kept because ByteTrack also matches low-score boxes (conf=0.1). In the Layer 4 run (on the OLD 3622-frame file, a different encode) it was lost just before the line. Counted by a 1-frame margin, so this is not a fix: hidden lane 5 cars can still be missed. 19 vehicles listed, speeds 56 to 101 km/h, 37.9 processing fps.
+- Range check: frames 1800 to 1829 -> `frames_processed` 30. Live API (`uvicorn main:app`): `/health` ok, `one_car.mp4` gives 0 counts and no vehicles (that car is on the far carriageway, outside ZONE), a `.txt` upload gives 400.
+
 ## Open items / blockers
 - ~~**3-minute file**~~ RESOLVED 2026-10-04: the user exported the 3-minute clip at 1920 x 1080 and saved it as `footage/Untitled design.mp4`, replacing the 2-minute calibration clip. New file: 30 fps, 5557 frames, 185.2 s. Frame 0 is identical to the old frame 0 (`tests/data/car.jpg`; 0.0 px shift), so the calibration holds. Late frames (60/110/150/184 s, scratchpad picture) show the same upward drift as at 110 s, not worse; the counting line still spans the near lanes. `original_3min.mp4` (4K) is no longer needed. Road drift measured near the counting line (CLAUDE.md, Scene): no 2-minute stretch is stable. **Decided with the user (option 1):** accept the drift, no stabilization for now; tune on 0 to 60 s, report on 60 to 120 s (replaces the 3 to 5 minute spec). Stabilization only if the hand count shows missed lane 5 cars. Explained to the user: "tuning" means changing our settings, not training the model. Open: how to feed only 60 to 120 s to the program (cut clip vs start/end frames), decide in Layer 6/7. Earlier options were: (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
 - ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
 - Remaining CLAUDE.md open items: hallway test object class. (ByteTrack thresholds and tracker reset resolved in Session 4.)
 
 ## Resume here (next session: build the remaining layers)
-1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 26 pass.
+1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 33 pass.
 2. ~~**Layer 2**~~ Done (Session 3). The user still watches `footage/annotated_detections.mp4` to confirm.
 3. ~~**Layer 3**~~ Done (Session 4). The user still watches `footage/annotated_tracks.mp4` to confirm.
 4. ~~**Layer 4**~~ Done (Session 4).
 5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/annotated_speeds.mp4` and checks the posted speed limit.
-6. **Layer 6:** `pipeline.py`, `main.py`, `tests/test_api.py`, demo video/GIF. **Decide with the user while planning:** how `process_video` handles only 60 to 120 s for the Layer 7 report. Suggested: optional `start_frame` / `end_frame` arguments (1800 / 3600) instead of cutting a clip file (no re-encoding; frame numbers match the full video for checking against the hand count). This changes the signature, so update CLAUDE.md Layer 6 in the same change. Note: `Untitled design.mp4` is now the 185 s export (5557 frames), not the old 3622-frame clip.
+6. ~~**Layer 6**~~ Done (Session 6). The user still watches `footage/annotated_demo.mp4` / `demo.gif`, (checked: all crossings counted, including the hidden car).
 7. **Layer 7:** `metrics.py`, `benchmark.py`, `tests/test_metrics.py`, README. Report on 60 to 120 s of `footage/Untitled design.mp4` (user hand-counts that minute per direction).
 8. ~~Before the first push: `git init`, decide how to handle large videos.~~ Done: repo on GitHub, videos git-ignored.
