@@ -100,3 +100,28 @@ Layer 2's `detect` (built) returns the same shape without `"track_id"`. Track ID
 Class names: `{2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}`.
 
 `vehicles` holds every track that crossed the line OR got at least one speed, sorted by ID. `speed_kmh` is the mean of that track's `speed_lists` entry, rounded to 0.1.
+
+## Output of `run_benchmark` (built, Layer 7)
+
+One dict per model in `MODELS`, in order n, s, m:
+
+```python
+{
+    "model": "yolo26n.pt",
+    "frames_processed": 1800,
+    "start_frame": 1800,
+    "end_frame": 3600,
+    "counts": {"positive": 214, "negative": 0},      # program
+    "count_error_pct": {
+        "positive": 1.4,      # percent_error(program +, hand +); None if hand + is 0
+        "negative": None,     # percent_error(program -, hand -); None if hand - is 0
+        "total": 1.4,         # sum of the ones that are not None
+    },
+    "processing_fps": 55.6,
+    "speed_errors": None,     # {"mae_kmh", "bias_kmh", "mape_pct"} when speed clips were used
+    "speed_clips_used": [],   # paths of speed clips with exactly 1 vehicle
+}
+```
+
+`metrics.percent_error(measured, truth)`: number, or None when `truth == 0`.
+`metrics.speed_errors(predicted, truth)`: `{"mae_kmh": 2.0, "bias_kmh": 0.0, "mape_pct": 4.0}`. Bias > 0 means speeds read high.

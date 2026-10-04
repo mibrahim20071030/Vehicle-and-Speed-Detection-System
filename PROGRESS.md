@@ -145,6 +145,29 @@ Built:
 - Real run, first 300 frames: **16 positive, 0 negative** (Layer 4 run: 15; hand count: 16). Track IDs differ from the Layer 4 run (e.g. 106/120 instead of 108/123), so this run's tracking was slightly different; the extra count IS the hidden lane 5 car (old ID 227, now ID 246). The user confirmed by eye that all crossing cars were counted. Traced: ID 246 is seen frames 121 to 143, its confidence drops to 0.24 at frame 141 as it goes behind the blue car, it crosses at frame 142 and is lost at frame 143. It was kept because ByteTrack also matches low-score boxes (conf=0.1). In the Layer 4 run (on the OLD 3622-frame file, a different encode) it was lost just before the line. Counted by a 1-frame margin, so this is not a fix: hidden lane 5 cars can still be missed. 19 vehicles listed, speeds 56 to 101 km/h, 37.9 processing fps.
 - Range check: frames 1800 to 1829 -> `frames_processed` 30. Live API (`uvicorn main:app`): `/health` ok, `one_car.mp4` gives 0 counts and no vehicles (that car is on the far carriageway, outside ZONE), a `.txt` upload gives 400. Real-clip API check: the first 300 frames re-saved as a 10 s mp4 (scratchpad) and posted to `/analyze`: 16 positive, 0 negative, 19 vehicles (16 counted, all 19 with a speed), the same as the direct run. Processing 63.2 fps without writing a video (37.9 fps with writing), so FPS for the benchmark must be measured without `output_path`.
 
+## Session 7: 2026-10-04 (Layer 7, the last layer)
+
+### Decisions made with the user
+1. No tuning pass. Settings stay as they are; the README says they were picked from spot checks on 0 to 10 s (inside the tuning minute) and not changed after looking at 60 to 120 s.
+2. Error measures, only these four: counting percent error, speed MAE / bias / MAPE (`speed_errors`), calibration error (`tools/calibration_report.py`), FPS. No new metric functions.
+3. Count error = `percent_error(program +, hand +) + percent_error(program -, hand -)`. A direction with hand count 0 shows `n/a`, the sum uses only the other direction, and a note under the table says so.
+4. The user hand-counts 60 to 120 s from `footage/count_60_120.mp4` BEFORE seeing the program's numbers.
+
+### Built
+- `scripts/annotate_line.py`: optional `[start_s] [end_s]`, and a yellow `t = .. s  frame ..` stamp (full-video frame numbers). Ran it: `footage/count_60_120.mp4`, 1800 frames (1800 to 3599), first stamp 60.00 s / frame 1800 (checked).
+- `metrics.py`: `percent_error`, `speed_errors`. `tests/test_metrics.py`: 3 tests. **Test status:** 36 passed.
+- `benchmark.py`: `run_benchmark(count_clip, hand_counts, speed_clips, start_frame=0, end_frame=None)` (signature change recorded in CLAUDE.md). `--short` flag runs 1 s to check the code path. `yolo26s.pt` and `yolo26m.pt` downloaded. `HAND_COUNTS` is still `# MADE-UP` (zeros).
+- Machine (printed by `benchmark.py`): NVIDIA GeForce RTX 5060 Laptop GPU, Intel Core Ultra 7 255H, Windows 11, Python 3.14.6, torch 2.14.1+cu130, ultralytics 8.4.172, opencv 5.0.0.
+- `docs/data_reference.md`: output of `run_benchmark`.
+
+### Results
+- User's hand count of 60 to 120 s: 83 left to right, 0 right to left. Posted limit 50 mph (80.5 km/h). Pexels page: https://www.pexels.com/video/traffic-at-grand-central-parkway-in-new-york-12451967/
+- Benchmark (run once): n +83 (0.0%, 58.6 fps), s +85 (2.4%, 54.9 fps), m +86 (3.6%, 44.7 fps). No - counts.
+- Extra s / m counts traced (scratchpad script): each is one vehicle with two boxes, two IDs crossing in the same frame (checked frame 3278 by eye: one white van, two IDs in s and in m). All nano crossings are also in s and m.
+- Speed sanity: median per-vehicle speed 80.6 / 79.2 / 80.2 km/h (n / s / m), close to the 80.5 km/h limit. Estimates only.
+- Calibration report re-run: matches the baseline.
+- `README.md` written (results, definitions, ground truth, speed sanity, calibration, limitations, footage, how to run).
+
 ## Open items / blockers
 - ~~**3-minute file**~~ RESOLVED 2026-10-04: the user exported the 3-minute clip at 1920 x 1080 and saved it as `footage/Untitled design.mp4`, replacing the 2-minute calibration clip. New file: 30 fps, 5557 frames, 185.2 s. Frame 0 is identical to the old frame 0 (`tests/data/car.jpg`; 0.0 px shift), so the calibration holds. Late frames (60/110/150/184 s, scratchpad picture) show the same upward drift as at 110 s, not worse; the counting line still spans the near lanes. `original_3min.mp4` (4K) is no longer needed. Road drift measured near the counting line (CLAUDE.md, Scene): no 2-minute stretch is stable. **Decided with the user (option 1):** accept the drift, no stabilization for now; tune on 0 to 60 s, report on 60 to 120 s (replaces the 3 to 5 minute spec). Stabilization only if the hand count shows missed lane 5 cars. Explained to the user: "tuning" means changing our settings, not training the model. Open: how to feed only 60 to 120 s to the program (cut clip vs start/end frames), decide in Layer 6/7. Earlier options were: (a) test a x2 scale of the calibration points on the 4K file with `draw_calibration` (and check a late frame for drift), or (b) get a 1920 x 1080 export of the 3-minute clip. Do not split into tuning (0 to 60 s) and reporting (60 to 180 s) until the grid matches. Resizing frames conflicts with the "do not resize" rule in CLAUDE.md.
 - ~~Not a git repo yet.~~ Resolved 2026-10-03: the user made the GitHub repo https://github.com/mibrahim20071030/Vehicle-and-Speed-Detection-System and pushed the first commit (`11473d2` "First Layer Completed", branch `main`). The user added `footage/*.mp4` to `.gitignore`, so no video files are in the repo (only the two overlay PNGs in `footage/`). See decision 2 of Session 2. The README should link to the Pexels pages for the clips.
@@ -157,5 +180,6 @@ Built:
 4. ~~**Layer 4**~~ Done (Session 4).
 5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/annotated_speeds.mp4` and checks the posted speed limit.
 6. ~~**Layer 6**~~ Done (Session 6). The user still watches `footage/annotated_demo.mp4` / `demo.gif`, (checked: all crossings counted, including the hidden car).
-7. **Layer 7:** `metrics.py`, `benchmark.py`, `tests/test_metrics.py`, README. Report on 60 to 120 s of `footage/Untitled design.mp4` (user hand-counts that minute per direction).
+7. ~~**Layer 7**~~ Done (Session 7). All layers built.
+9. Remaining for the definition of done: speed error against real ground truth (GPS pass, hallway test, or dataset). Optional: fix the s/m double boxes, stabilization.
 8. ~~Before the first push: `git init`, decide how to handle large videos.~~ Done: repo on GitHub, videos git-ignored.

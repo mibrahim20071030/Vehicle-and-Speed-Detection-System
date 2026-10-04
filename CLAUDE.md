@@ -44,7 +44,7 @@ config.py          camera setup: loads SRC, DST, LINE_A, LINE_B, ZONE, FRAME_SIZ
 footage/           real clips (from Pexels)
 tools/             one-off scripts, not part of the pipeline: click_points.py, draw_calibration.py, calibration_report.py
 docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it)
-scripts/           annotate_line.py (Layer 1 manual check), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check), make_demo.py (Layer 6: annotated video + demo.gif)
+scripts/           annotate_line.py (Layer 1 manual check; with [start_s] [end_s] it adds a time/frame stamp, used for the Layer 7 hand-count video), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check), make_demo.py (Layer 6: annotated video + demo.gif)
 pytest.ini         puts the repo root on the import path for tests
 video.py           Layer 1: open_video, draw_overlay
 detector.py        Layer 2: detect
@@ -354,8 +354,9 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
 
 **`benchmark.py`:**
 - `MODELS = ["yolo26n.pt", "yolo26s.pt", "yolo26m.pt"]`.
-- `run_benchmark(count_clip, hand_counts, speed_clips)`: for each model, run `process_video` on the 1-minute count clip (60 to 120 s, see "Tuning vs reporting split") (counts and `processing_fps`) and on each `(clip_path, true_kmh)` speed clip. A speed clip is used only if exactly 1 vehicle is found (track IDs differ between runs, so results can't be matched by ID). Record `speed_clips_used`.
-- `if __name__ == "__main__":` holds the real clip paths and ground truth, and prints a markdown table: Model, Counts (+/-), Count error, Speed MAE, FPS. The Speed MAE column prints `n/a` when no speed clips are given.
+- `run_benchmark(count_clip, hand_counts, speed_clips, start_frame=0, end_frame=None)`: for each model, run `process_video` on the 1-minute count clip (60 to 120 s, see "Tuning vs reporting split"; the frame range is passed to `process_video`, changed 2026-10-04) (counts and `processing_fps`, no `output_path` so video writing does not slow it) and on each `(clip_path, true_kmh)` speed clip. A vehicle counts for a speed clip if it got a speed; a speed clip is used only if exactly 1 such vehicle is found (track IDs differ between runs, so results can't be matched by ID). Record `speed_clips_used`. Returns one plain dict per model (see `docs/data_reference.md`).
+- **Count error (decided 2026-10-04 with the user):** `+ error = percent_error(program +, hand +)`, `- error = percent_error(program -, hand -)`, `Count error = + error + - error`. If the hand count for a direction is 0, that error is `None` (printed `n/a`), the sum uses only the other direction, and a note under the table says so. No other count metric.
+- `if __name__ == "__main__":` holds the real clip paths and ground truth, and prints the GPU, CPU, OS and library versions, then a markdown table: Model, Counts (+/-) program vs hand, + error, - error, Count error, Speed MAE, Speed bias, Speed MAPE, FPS. The three speed columns print `n/a` when no speed clips are given. `python benchmark.py --short` runs only 1 s (frames 1800 to 1829) to check the code path; not a result.
 - **Current clip has no independent speed ground truth.** Keep the speed-error machinery for a later GPS pass, hallway test, or dataset. The README must say speeds on this clip are estimates only.
 
 **Tests (`tests/test_metrics.py`):**
@@ -385,7 +386,16 @@ Call `process_video` with `src=SRC, dst=DST, line_a=LINE_A, line_b=LINE_B, zone=
   - Camera drift, if H is not updated: speeds read about 1% low at 17 s, 1 to 3% high around 60 s, and 1 to 5% high near 110 s.
 - **Limits to state:** one dusk clip, near carriageway only, handheld or slightly moving camera, speed not independently validated.
 - **Tuning vs reporting split (decided 2026-10-04, replaces the 3 to 5 minute spec):** both parts come from `footage/Untitled design.mp4` (the 185 s export). Tune on 0 to 60 s, report on 60 to 120 s (1 minute). "Tuning" = changing our settings (`conf`, `iou`, `window`, line, zone), never training the model. Results on 60 to 120 s are run once with the final settings. The README must say: both parts come from the same camera and conditions, the reported part is 1 minute, and the camera drifts during it (see Scene). The program gets only 60 to 120 s through `process_video(..., start_frame=1800, end_frame=3600)` (decided in Layer 6).
-- **Hand count needed:** 60 to 120 s, near carriageway, per direction, same definition as the program.
+- **Hand count (done 2026-10-04):** 60 to 120 s, near carriageway, from `footage/count_60_120.mp4`: **83 positive, 0 negative**.
+- **Results (2026-10-04, run once with the final settings):**
+
+| Model | Counts (+/-) | Count error | FPS |
+|---|---|---|---|
+| yolo26n | 83 / 0 | 0.0% | 58.6 |
+| yolo26s | 85 / 0 | 2.4% | 54.9 |
+| yolo26m | 86 / 0 | 3.6% | 44.7 |
+
+  Every extra s / m count is one vehicle with two boxes (two IDs crossing in the same frame at the same point; s: frames 1945, 3278; m: 3278, 3479, 3550). All nano crossings are also in s and m. Totals only; no per-car matching against the hand count. Speed sanity (mean per vehicle): median 80.6 / 79.2 / 80.2 km/h (n / s / m); posted limit 50 mph = 80.5 km/h (user, Street View). Calibration report re-run: matches the baseline.
 
 ---
 
