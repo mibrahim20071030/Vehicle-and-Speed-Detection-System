@@ -41,7 +41,7 @@ End product: GitHub repo, demo GIF, working API endpoint, README with counting a
 calibration_points.json  source of truth for SRC, DST, LINE_A, LINE_B, ZONE (do not edit point values by hand)
 calibration_overlay.png  reference picture of frame 0 with grid, points, line, zone
 config.py          camera setup: loads SRC, DST, LINE_A, LINE_B, ZONE, FRAME_SIZE from calibration_points.json
-footage/           real clips (from Pexels)
+footage/           real clips (from Pexels), annotated_demo.mp4, count_60_120.mp4; layer_checks/ holds the Layer 1 to 5 check videos L1_counting_line, L2_detection_boxes, L3_tracking_ids, L4_line_counts, L5_speeds (all videos git-ignored by footage/**/*.mp4)
 tools/             one-off scripts, not part of the pipeline: click_points.py, draw_calibration.py, calibration_report.py
 docs/              data_reference.md (what each pipeline variable holds; update when a layer changes it), calibration.md (calibration details for readers; linked from the README)
 scripts/           annotate_line.py (Layer 1 manual check; with [start_s] [end_s] it adds a time/frame stamp, used for the Layer 7 hand-count video), annotate_detections.py (Layer 2 visual check), annotate_tracks.py (Layer 3 visual check), make_demo.py (Layer 6: annotated video + demo.gif)

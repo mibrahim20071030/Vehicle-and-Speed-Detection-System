@@ -1,6 +1,6 @@
-.venv/
+﻿.venv/
 __pycache__/
 .pytest_cache/
 *.pt
 
-footage/*.mp4
+footage/**/*.mp4

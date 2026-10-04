@@ -20,7 +20,7 @@ CLAUDE.md is the spec. This file records what has been built, what was decided, 
 - `tests/test_video.py`: 3 tests.
 - `pytest.ini`: `pythonpath = .` so tests can import modules from the repo root, and `testpaths = tests`.
 - `scripts/annotate_line.py <in.mp4> <out.mp4>`: the manual check (draws the counting line on every frame).
-- Manual check done 2026-10-03: `python scripts/annotate_line.py "footage/Untitled design.mp4" footage/annotated_line.mp4` wrote 3622 frames, 1920x1080 @ 30 fps.
+- Manual check done 2026-10-03: `python scripts/annotate_line.py "footage/Untitled design.mp4" footage/layer_checks/L1_counting_line.mp4` wrote 3622 frames, 1920x1080 @ 30 fps.
   - 0 s: the line runs along the row 2 dashes, from the barrier-side shoulder edge to just past the solid right edge line, as in `calibration_overlay.png`.
   - 60 s and 110 s: the road has moved up in the frame (camera drift), so the line no longer sits on the row 2 dashes and cuts across the lanes at an angle. It still spans all 5 near lanes by eye; the left end sits at or just inside the barrier-side lane edge. The 1.9 m figure from CLAUDE.md can't be confirmed by eye. Watch lane 5 in the hand count.
   - Box, label and count drawing in `draw_overlay` has not been seen on real frames yet (Layer 2 / Layer 6).
@@ -73,7 +73,7 @@ Built:
 
 ### Decisions made with the user
 1. **Footage license:** both clips are from Pexels, free to use (user's statement). The license notes were removed from CLAUDE.md and the open item was marked resolved. The README must still name the source and license. Caveat raised: the Pexels license does not allow redistributing unaltered copies, so putting raw clips in a public repo is a grey area; linking to the Pexels page avoids it.
-2. **`.gitignore`:** ~~do NOT add entries because of licensing.~~ Changed 2026-10-04 at the user's choice: `footage/*.mp4` is git-ignored. Video files stay local only and are never pushed (GitHub's 100 MB limit, and the Pexels license does not allow redistributing unaltered copies). The README links to the Pexels pages instead.
+2. **`.gitignore`:** ~~do NOT add entries because of licensing.~~ Changed 2026-10-04 at the user's choice: `footage/**/*.mp4` is git-ignored (was `footage/*.mp4`, widened 2026-10-04 when the layer-check videos moved to `footage/layer_checks/`). Video files stay local only and are never pushed (GitHub's 100 MB limit, and the Pexels license does not allow redistributing unaltered copies). The README links to the Pexels pages instead.
 3. **Model family: YOLO26** (`yolo26n/s/m.pt`). CLAUDE.md updated in every place that named YOLO11. Checked: `iou=` still changes results, so `detect()` keeps `iou=0.5`.
 4. **`car.jpg`:** cut from the clip (frame 0).
 5. **Layer 2 visual check:** add `scripts/annotate_detections.py <in.mp4> <out.mp4>` (a script, same shape as `annotate_line.py`, that calls `detect` per frame and draws the boxes with `draw_overlay`). Only process the first few hundred frames. List it in CLAUDE.md's repo layout. Only Layers 2 and 3 need such scripts; from Layer 6 on `process_video(..., output_path=...)` writes the annotated video.
@@ -89,7 +89,7 @@ Built:
 - `tests/test_detector.py`: `test_detect_returns_vehicles` (on `car.jpg`), `test_detect_blank_frame`.
 - `scripts/annotate_detections.py <in.mp4> <out.mp4> [max_frames=300]`: by-hand check script. Draws detection boxes and the counting line with `draw_overlay`, prints detections per frame. Listed in CLAUDE.md's repo layout.
 - **Test status:** 12 passed (13 s; importing `detector` loads the model).
-- Visual check run on the first 300 frames (10 s) of `footage/Untitled design.mp4` -> `footage/annotated_detections.mp4` (git-ignored). 8.2 detections per frame on average (min 2, max 13). Frames at 0 s, 5 s, 9 s looked at:
+- Visual check run on the first 300 frames (10 s) of `footage/Untitled design.mp4` -> `footage/layer_checks/L2_detection_boxes.mp4` (git-ignored). 8.2 detections per frame on average (min 2, max 13). Frames at 0 s, 5 s, 9 s looked at:
   - Near-carriageway vehicles around the counting line are boxed, including dark cars and a yellow taxi. Boxes fit the vehicles.
   - Small, distant vehicles at the right of the frame (far end of the road, beyond the speed zone) and many far-carriageway vehicles are often missed. Neither matters for counting or speed.
   - Overlapping vehicles in the near lanes sometimes get boxes that overlap a lot; watch for ID switches in Layer 3.
@@ -105,7 +105,7 @@ Built:
 - `scripts/annotate_tracks.py <in.mp4> <out.mp4> [max_frames=300]`: by-hand check script, draws boxes with ID labels. Listed in CLAUDE.md.
 - **Test status:** 14 passed.
 - ByteTrack defaults and the reset call are verified and written into CLAUDE.md Layer 3. Reset: `tracker_model.predictor.trackers[0].reset()`.
-- Visual check on the first 300 frames -> `footage/annotated_tracks.mp4`: 67 IDs, 20 ever inside ZONE. Near-lane cars mostly keep one ID across the whole frame. ID labels now seen on real frames.
+- Visual check on the first 300 frames -> `footage/layer_checks/L3_tracking_ids.mp4`: 67 IDs, 20 ever inside ZONE. Near-lane cars mostly keep one ID across the whole frame. ID labels now seen on real frames.
   - **Known failure:** lane 5 (barrier side) cars hidden behind a nearer car lose their box and are not recovered (ID 6 at frame 0 to 6; ID 227 lost on the counting line at frame 140). Can cause missed counts; check in the Layer 4 hand count.
 
 ### Decisions made with the user
@@ -116,11 +116,11 @@ Built:
 - `counting.py`: `iou`, `crossed`, `reference_point`, `make_counter_state`, `update_counts` added below `side_of_line`, as specified.
 - `tests/test_counting.py`: the 7 tests from CLAUDE.md.
 - **Test status:** 21 passed.
-- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/annotated_counts.mp4` (git-ignored): **15 positive, 0 negative**. Counted IDs: 23, 108, 123, 168, 178, 196, 221, 248, 281, 267, 313, 365, 459, 479, 507.
+- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/layer_checks/L4_line_counts.mp4` (git-ignored): **15 positive, 0 negative**. Counted IDs: 23, 108, 123, 168, 178, 196, 221, 248, 281, 267, 313, 365, 459, 479, 507.
   - Car 227 NOT counted (lost at (982, 892), still on the negative side). The user chose to deal with this later. Recorded as a known limit in CLAUDE.md Layer 4.
   - IDs 1, 6, 7 were already past the line at frame 0, so they are not counted (first frame never counts).
   - **User's hand count of the same 10 s: 16** (program 15). The difference is car 227, hidden behind the blue car just before the line. No false counts. Count error on this spot check: 1 of 16 (6.25%).
-  - Count text changed at the user's request: "Counts" title plus `+: n  -: m`, top-right, red (`COUNTS_COLOR`), scale 1.2 (`COUNTS_SCALE`), on a black box. CLAUDE.md Layer 1 updated. `footage/annotated_counts.mp4` regenerated.
+  - Count text changed at the user's request: "Counts" title plus `+: n  -: m`, top-right, red (`COUNTS_COLOR`), scale 1.2 (`COUNTS_SCALE`), on a black box. CLAUDE.md Layer 1 updated. `footage/layer_checks/L4_line_counts.mp4` regenerated.
 
 ## Session 5: 2026-10-04 (Layer 5)
 
@@ -129,7 +129,7 @@ Built:
 - `speed.py` (new module): `speed_kmh`, `make_speed_state`, `update_speeds` as specified. Positions stored as plain Python floats. Time uses the stored frame numbers.
 - `tests/test_speed.py`: 5 new tests (check_calibration, two speed_kmh, constant motion, outside zone) plus the rewritten 4-point test.
 - **Test status:** 26 passed. `tools/calibration_report.py` still matches the baseline.
-- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/annotated_speeds.mp4` (git-ignored), with counts and speed labels. Speed labels now seen on real frames.
+- Real-footage check (scratchpad script, not in the repo) on the first 300 frames -> `footage/layer_checks/L5_speeds.mp4` (git-ignored), with counts and speed labels. Speed labels now seen on real frames.
   - 19 tracks got a speed. Mean per track 57 to 101 km/h, median 81. Counts still 15 positive, 0 negative.
   - Single readings within a track vary about +-10 to 15 km/h (0.33 s window). Short tracks (IDs 1, 7, 227, 569; 2 to 6 readings) are least reliable.
   - Still to do by the user: watch the video, and look up the posted speed limit (Street View) for the sanity check.
@@ -182,10 +182,10 @@ Built:
 
 ## Resume here (next session: build the remaining layers)
 1. Run `.\.venv\Scripts\python.exe -m pytest` and confirm 33 pass.
-2. ~~**Layer 2**~~ Done (Session 3). The user still watches `footage/annotated_detections.mp4` to confirm.
-3. ~~**Layer 3**~~ Done (Session 4). The user still watches `footage/annotated_tracks.mp4` to confirm.
+2. ~~**Layer 2**~~ Done (Session 3). The user still watches `footage/layer_checks/L2_detection_boxes.mp4` to confirm.
+3. ~~**Layer 3**~~ Done (Session 4). The user still watches `footage/layer_checks/L3_tracking_ids.mp4` to confirm.
 4. ~~**Layer 4**~~ Done (Session 4).
-5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/annotated_speeds.mp4` and checks the posted speed limit.
+5. ~~**Layer 5**~~ Done (Session 5). The user still watches `footage/layer_checks/L5_speeds.mp4` and checks the posted speed limit.
 6. ~~**Layer 6**~~ Done (Session 6). The user still watches `footage/annotated_demo.mp4` / `demo.gif`, (checked: all crossings counted, including the hidden car).
 7. ~~**Layer 7**~~ Done (Session 7). All layers built.
 9. Project done. Left for the user: commit and push. Optional: delete `yolo11n.pt`, watch the annotated videos, stabilization.
